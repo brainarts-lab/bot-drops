@@ -53,7 +53,7 @@ h1{font:600 clamp(38px,9vw,64px)/1.02 ui-serif,Georgia,"Times New Roman",serif;m
 .lead{color:var(--muted);font-size:19px;margin:0 0 18px}
 .facts{font:600 12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
 img{display:block;width:100%;height:auto;border-radius:14px;border:1px solid var(--line)}.card{position:relative;margin:26px 0}
-.card a{position:absolute;left:4.6%;top:13.8%;width:17%;height:7.4%;border-radius:8px}.card a:hover,.card a:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+.card a{position:absolute;left:4%;top:17%;transform:translateY(-50%);width:max(18%,132px);height:max(8%,36px);border-radius:8px}.card a:hover,.card a:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
 .btn{font:inherit;font-weight:600;min-height:52px;padding:0 22px;border-radius:12px;border:1px solid var(--lime);background:var(--lime);color:var(--bg);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
 .btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}.btn:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 .row{display:flex;gap:10px;flex-wrap:wrap}.primary .btn{flex:1 1 220px}
@@ -61,7 +61,8 @@ ul.steps{list-style:none;padding:0;margin:16px 0 0;color:var(--muted);font-size:
 section{border-top:1px solid var(--line);margin-top:32px;padding-top:24px}h2{font-size:15px;margin:0 0 12px;letter-spacing:.02em}
 details{border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin:10px 0;background:var(--panel)}#chat{margin-top:18px}summary{cursor:pointer;font-weight:600}
 details p{color:var(--muted);font-size:14px;margin:10px 0 8px}code{display:block;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere;color:var(--ink)}
-.copy{margin-top:8px;font:inherit;font-size:13px;background:none;border:0;color:var(--lime);cursor:pointer;padding:4px 0}
+.copy{margin-top:10px;font:inherit;font-size:14px;font-weight:600;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--lime);cursor:pointer}
+details a{color:var(--lime);text-underline-offset:3px}.btn.small{min-height:44px;margin-top:10px}#help{margin-top:16px}#help ul.steps{margin-top:8px}
 .share a{flex:1 1 120px}.note{color:var(--muted);font-size:13px;margin-top:14px}[hidden]{display:none!important}
 footer{margin-top:40px;color:var(--muted);font-size:12px}footer a{color:var(--ink);text-underline-offset:3px}footer .credit img{display:inline-block;width:20px;height:20px;border-radius:50%;border:0;margin:0 6px 0 2px;vertical-align:-5px}
 </style></head><body><main data-repo="__REPO__" data-page="__PAGE__" data-share="__SHARE__">
@@ -77,12 +78,17 @@ footer{margin-top:40px;color:var(--muted);font-size:12px}footer a{color:var(--in
   <li>You see what the bot contains first. Nothing installs on its own</li>
   <li>Your keys, chats and memory stay yours. The bot brings none of the creator's</li>
 </ul>
+<details id="help" hidden><summary>Hermes did not open?</summary><ul class="steps">
+  <li>Open Hermes Desktop, turn on Bot Drops in Capabilities, then press Adopt again</li>
+  <li>Using the browser dashboard? <a id="web" href="#">Open it there</a></li>
+  <li>On another device? Send it to your Hermes chat, see below</li>
+</ul></details>
 <details id="chat"><summary>On your phone? Send it to your Hermes chat</summary>
 <p>Paste this into the chat where you talk to your Hermes, for example Telegram. Hermes shows a preview and asks before it adopts anything. Needs Bot Drops on that Hermes.</p><code id="chatcmd">/drop preview __REPO_TEXT__</code><button class="copy" data-copy="chatcmd" type="button">Copy message</button></details>
 
 <section><h2>New to Bot Drops?</h2>
 <details><summary>I have Hermes, but not Bot Drops</summary>
-<p>Install the free plugin once, then press Adopt again.</p><code id="plugin">hermes plugins install __PLUGIN__ --enable</code><button class="copy" data-copy="plugin" type="button">Copy command</button></details>
+<p>Install the free plugin once, then press Adopt again.</p><a class="btn ghost small" id="install" href="hermes://plugin/install?repo=__PLUGIN_SLUG__">Install in Hermes Desktop</a><p>Or in a terminal:</p><code id="plugin">hermes plugins install __PLUGIN__ --enable</code><button class="copy" data-copy="plugin" type="button">Copy command</button></details>
 <details><summary>I use Hermes without plugins</summary>
 <p>Hermes can install this bot as a new profile by itself. You review its manifest in the terminal.</p><code id="cli">hermes profile install __REPO_TEXT__</code><button class="copy" data-copy="cli" type="button">Copy command</button></details>
 <details><summary>What is Hermes?</summary><p>Hermes Agent is an open-source AI agent by Nous Research that runs on your own computer with the model you choose.</p></details>
@@ -99,9 +105,11 @@ footer{margin-top:40px;color:var(--muted);font-size:12px}footer a{color:var(--in
   var guess=fromPages(),repo=root.dataset.repo||(guess&&guess.repo)||'',page=root.dataset.page||(guess&&guess.page)||repo;
   var link=root.dataset.share||page||location.href;
   var open=document.getElementById('open');
-  if(repo){open.href=DASHBOARD+'?url='+encodeURIComponent(repo);document.getElementById('cli').textContent='hermes profile install '+repo;document.getElementById('chatcmd').textContent='/drop preview '+repo;}
+  var help=document.getElementById('help'),web=document.getElementById('web');
+  if(repo){open.href='hermes://drops/import?url='+encodeURIComponent(repo);web.href=DASHBOARD+'?url='+encodeURIComponent(repo);
+    open.addEventListener('click',function(){setTimeout(function(){help.hidden=false;help.open=true;},1500)});document.getElementById('cli').textContent='hermes profile install '+repo;document.getElementById('chatcmd').textContent='/drop preview '+repo;}
   else{open.removeAttribute('href');open.setAttribute('aria-disabled','true');open.style.opacity=.45;}
-  if(window.matchMedia&&matchMedia('(pointer:coarse)').matches){var chat=document.getElementById('chat');chat.open=true;root.insertBefore(chat,document.querySelector('.primary'));}
+  if(window.matchMedia&&matchMedia('(pointer:coarse), (max-width:640px)').matches){var chat=document.getElementById('chat');chat.open=true;root.insertBefore(chat,document.querySelector('.primary'));}
   function copy(text,button){var done=function(){var t=button.textContent;button.textContent='Copied';setTimeout(function(){button.textContent=t},1600)};
     if(navigator.clipboard)navigator.clipboard.writeText(text).then(done,function(){prompt('Copy',text)});else prompt('Copy',text);}
   document.getElementById('copy').onclick=function(){copy(link,this)};
@@ -141,7 +149,7 @@ def render_landing(info, *, repo='', page='', dashboard=DASHBOARD, plugin=PLUGIN
         '__FACTS__': escape(facts(info)),
         '__IMAGE__': escape(image), '__OGURL__': ('<meta property="og:url" content="' + escape(page) + '">\n') if page else '',
         '__REPO__': escape(repo), '__PAGE__': escape(page), '__SHARE__': escape(share), '__REPO_TEXT__': escape(repo or '<this repository link>'),
-        '__PLUGIN__': escape(plugin),
+        '__PLUGIN__': escape(plugin), '__PLUGIN_SLUG__': escape(plugin.replace('https://github.com/', '').strip('/')),
         '__CREDIT__': ('Made with Bot Drops · by <a class="credit" href="' + escape(CREDIT_URL) + '" target="_blank" rel="noopener noreferrer">' + (('<img src="' + _avatar_uri() + '" alt="" width="20" height="20">') if _avatar_uri() else '') + escape(CREDIT_NAME) + '</a>. ') if credit else '',
         '__CARDCREDIT__': ('<a href="' + escape(CREDIT_URL) + '" target="_blank" rel="noopener noreferrer" aria-label="' + escape(CREDIT_NAME) + ' on X" title="' + escape(CREDIT_NAME) + ' on X"></a>') if credit else '',
         '__DASHBOARD__': json.dumps(dashboard).replace('<', '\\u003c'), '__TEXT__': json.dumps(text).replace('<', '\\u003c'),

@@ -3,7 +3,7 @@
   "label": "Bot Drops",
   "description": "Preview, adopt and share Hermes bots.",
   "icon": "Package",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "tab": {"path": "/drops/import", "position": "after:skills"},
   "entry": "dist/index.js",
   "api": "plugin_api.py"
