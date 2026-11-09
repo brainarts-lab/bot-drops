@@ -269,15 +269,20 @@ class Drops:
         from .landing import post_text, render_landing
         package=self.export_dir(identifier)
         info=inspect_tree(package)
+        version=identifier[len('export-'):][:7]  # same suffix on the page's share buttons and in the plugin
         def finish(work,repo_url,page_url):
             # Final links are known now: absolute card URL for link previews, direct Adopt button.
             try: credit=json.loads((self.data/(identifier+'.options.json')).read_text()).get('credit') is not False
             except (OSError,ValueError): credit=True
-            (work/'index.html').write_text(render_landing(info,repo=repo_url,page=page_url,credit=credit))
+            (work/'index.html').write_text(render_landing(info,repo=repo_url,page=page_url,credit=credit,share=page_url+'?v='+version))
         with self.lock():
             result=github.publish(package,owner,repo,info['description'],state=self.data/(identifier+'.github.json'),
                                   cwd=self.data,finish=finish,mode=mode)
-        result['post_text']=post_text(info,result['pages_url'] or result['repo_url'])
+        # X and other networks cache link previews for days: a version suffix makes them fetch the new card.
+        link=result['pages_url'] or result['repo_url']
+        if result['pages_url']: link+='?v='+version
+        result['share_url']=link
+        result['post_text']=post_text(info,link)
         result['title']=info['name']
         return result
 

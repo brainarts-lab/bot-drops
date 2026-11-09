@@ -137,6 +137,7 @@ def publish(package,owner,repo,description,*,state,cwd,finish=None,mode='create'
         if mode=='create':
             text=' '.join(str(description or '').split())[:200] or 'A shared Hermes bot'
             _run([gh,'repo','create',slug,'--public','--description='+text],cwd,60)
+        head=_run(['git','rev-parse','HEAD'],work,detail=False).strip()
         if changed:
             try:
                 _run(['git']+auth+['push','-q','origin','HEAD:refs/heads/'+branch],work,90)
@@ -147,6 +148,7 @@ def publish(package,owner,repo,description,*,state,cwd,finish=None,mode='create'
     pages=_pages(gh,slug,owner,repo,cwd)
     try: _run([gh,'repo','edit',slug,'--add-topic',TOPIC],cwd,30)
     except DropError: pass
-    result={'owner':owner,'repo':repo,'repo_url':url,'pages_url':pages,'mode':mode,'changed':changed}
+    result={'owner':owner,'repo':repo,'repo_url':url,'pages_url':pages,'mode':mode,'changed':changed,
+            'commit':head if re.fullmatch(r'[0-9a-f]{40}',head) else ''}
     state.write_text(json.dumps(result));state.chmod(0o600)
     return result

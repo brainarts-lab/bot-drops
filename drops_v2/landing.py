@@ -63,7 +63,7 @@ details p{color:var(--muted);font-size:14px;margin:10px 0 8px}code{display:block
 .copy{margin-top:8px;font:inherit;font-size:13px;background:none;border:0;color:var(--lime);cursor:pointer;padding:4px 0}
 .share a{flex:1 1 120px}.note{color:var(--muted);font-size:13px;margin-top:14px}[hidden]{display:none!important}
 footer{margin-top:40px;color:var(--muted);font-size:12px}footer a{color:var(--ink);text-underline-offset:3px}footer .credit img{display:inline-block;width:20px;height:20px;border-radius:50%;border:0;margin:0 6px 0 2px;vertical-align:-5px}
-</style></head><body><main data-repo="__REPO__" data-page="__PAGE__">
+</style></head><body><main data-repo="__REPO__" data-page="__PAGE__" data-share="__SHARE__">
 <div class="brand"><span>BOT DROPS <b>FOR HERMES</b></span><span class="pill">BOT DROP</span></div>
 <h1>__TITLE__</h1>
 <p class="lead">__DESCRIPTION__</p>
@@ -96,7 +96,7 @@ footer{margin-top:40px;color:var(--muted);font-size:12px}footer a{color:var(--in
   var root=document.querySelector('main'),DASHBOARD=__DASHBOARD__,TEXT=__TEXT__;
   function fromPages(){var m=location.hostname.match(/^([^.]+)\\.github\\.io$/),r=location.pathname.split('/').filter(Boolean)[0];return m&&r?{repo:'https://github.com/'+m[1]+'/'+r,page:location.origin+'/'+r+'/'}:null;}
   var guess=fromPages(),repo=root.dataset.repo||(guess&&guess.repo)||'',page=root.dataset.page||(guess&&guess.page)||repo;
-  var link=page||location.href;
+  var link=root.dataset.share||page||location.href;
   var open=document.getElementById('open');
   if(repo){open.href=DASHBOARD+'?url='+encodeURIComponent(repo);document.getElementById('cli').textContent='hermes profile install '+repo;document.getElementById('chatcmd').textContent='/drop preview '+repo;}
   else{open.removeAttribute('href');open.setAttribute('aria-disabled','true');open.style.opacity=.45;}
@@ -131,7 +131,7 @@ def facts(info):
     return '  ·  '.join(out)
 
 
-def render_landing(info, *, repo='', page='', dashboard=DASHBOARD, plugin=PLUGIN_REPO, credit=True):
+def render_landing(info, *, repo='', page='', dashboard=DASHBOARD, plugin=PLUGIN_REPO, credit=True, share=''):
     image = (page + 'drop-card.png') if page else 'drop-card.png'
     text = post_text(info, '').rsplit('\n', 1)[0] + '\nAdopt it in your own Hermes: '
     values = {
@@ -139,7 +139,7 @@ def render_landing(info, *, repo='', page='', dashboard=DASHBOARD, plugin=PLUGIN
         '__DESCRIPTION__': escape(' '.join(str(info.get('description') or 'A Hermes bot, ready to make your own.').split())),
         '__FACTS__': escape(facts(info)),
         '__IMAGE__': escape(image), '__OGURL__': ('<meta property="og:url" content="' + escape(page) + '">\n') if page else '',
-        '__REPO__': escape(repo), '__PAGE__': escape(page), '__REPO_TEXT__': escape(repo or '<this repository link>'),
+        '__REPO__': escape(repo), '__PAGE__': escape(page), '__SHARE__': escape(share), '__REPO_TEXT__': escape(repo or '<this repository link>'),
         '__PLUGIN__': escape(plugin),
         '__CREDIT__': ('Made with Bot Drops · by <a class="credit" href="' + escape(CREDIT_URL) + '" target="_blank" rel="noopener noreferrer">' + (('<img src="' + _avatar_uri() + '" alt="" width="20" height="20">') if _avatar_uri() else '') + escape(CREDIT_NAME) + '</a>. ') if credit else '',
         '__DASHBOARD__': json.dumps(dashboard).replace('<', '\\u003c'), '__TEXT__': json.dumps(text).replace('<', '\\u003c'),

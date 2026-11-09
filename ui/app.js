@@ -112,7 +112,7 @@ function createDropsApp(React, bridge) {
       });
     }
     function shareTargets(result) {
-      const link = result.pages_url || result.repo_url, text = result.post_text.split('\n')[0], e = encodeURIComponent;
+      const link = result.share_url || result.pages_url || result.repo_url, text = result.post_text.split('\n')[0], e = encodeURIComponent;
       return [
         {label: 'Post on X', href: 'https://x.com/intent/post?text='+e(text)+'&url='+e(link)},
         {label: 'LinkedIn', href: 'https://www.linkedin.com/sharing/share-offsite/?url='+e(link)},
@@ -195,7 +195,7 @@ function createDropsApp(React, bridge) {
       h('h2', null, published.mode === 'update' ? (published.changed ? 'Your drop is updated' : 'Already up to date') : 'Your bot is live'),
       h('p', null, 'Post it anywhere. The card shows up on its own when you share the link.'),
       h('div', {className: 'ad-sharegrid'}, shareTargets(published).map(t => h('a', {key: t.label, className: 'ad-button ad-secondary', href: t.href, target: '_blank', rel: 'noopener noreferrer'}, t.label))),
-      h('div', {className: 'ad-actions'}, button('Copy link', () => copyText(published.pages_url || published.repo_url), !!busy, 'ad-quiet'), button('Copy post text', () => copyText(published.post_text), !!busy, 'ad-quiet')),
+      h('div', {className: 'ad-actions'}, button('Copy link', () => copyText(published.share_url || published.pages_url || published.repo_url), !!busy, 'ad-quiet'), button('Copy post text', () => copyText(published.post_text), !!busy, 'ad-quiet')),
       more('Instagram', h('p', null, 'Instagram has no share link. Save the story image, post it as a story and add a link sticker with your link.'),
         button('Save story image', () => work('Saving…', () => bridge.download(exported, 'story')), !!busy, 'ad-secondary')),
       more('Post text and files', h('textarea', {className: 'ad-post', readOnly: true, rows: 3, value: published.post_text, 'aria-label': 'Post text', onFocus: e => e.target.select()}),

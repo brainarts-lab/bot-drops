@@ -112,9 +112,15 @@ class GitHubPublishTests(unittest.TestCase):
         log = self.commands()
         self.assertTrue(any('/pages' in c and 'POST' in c for c in log)); self.assertTrue(any('--add-topic hermes-bot-drop' in c for c in log))
         self.assertIn('https://acme.github.io/author-bot/', result['post_text'])
+        head = git('rev-parse', 'main', cwd=self.remote('acme/author-bot')).strip()
+        self.assertEqual(result['commit'], head)
+        version = self.id[len('export-'):][:7]
+        self.assertEqual(result['share_url'], 'https://acme.github.io/author-bot/?v=' + version)
+        self.assertIn(result['share_url'], result['post_text'])
         page = git('show', 'main:index.html', cwd=self.remote('acme/author-bot'))
         self.assertIn('og:image" content="https://acme.github.io/author-bot/drop-card.png', page)
         self.assertIn('data-repo="https://github.com/acme/author-bot"', page)
+        self.assertIn('data-share="https://acme.github.io/author-bot/?v=' + self.id[len('export-'):][:7], page)
         self.assertIn('x.com/chrisbrainarts', page)
 
     def test_credit_choice_survives_until_the_upload(self):
@@ -146,13 +152,14 @@ class GitHubPublishTests(unittest.TestCase):
         parent = git('rev-parse', 'main^', cwd=self.remote('tester/old-drop')).strip()
         self.assertEqual(parent, before)  # history kept, no force push
 
-    def test_update_with_identical_content_creates_no_commit(self):
+    def test_update_with_the_same_bot_only_refreshes_the_share_link(self):
         self.drops.publish_github(self.id, 'tester', 'old-drop', confirmed=True, mode='update')
-        head = git('rev-parse', 'main', cwd=self.remote('tester/old-drop')).strip()
         again = self.drops.publish('author-bot', confirmed=True)
         result = self.drops.publish_github(again['id'], 'tester', 'old-drop', confirmed=True, mode='update')
-        self.assertFalse(result['changed'])
-        self.assertEqual(git('rev-parse', 'main', cwd=self.remote('tester/old-drop')).strip(), head)
+        self.assertTrue(result['changed'])
+        changed = git('diff', '--name-only', 'main~1', 'main', cwd=self.remote('tester/old-drop')).split()
+        self.assertEqual(changed, ['index.html'])  # only the versioned share link differs
+        self.assertIn('?v=' + again['id'][len('export-'):][:7], result['share_url'])
 
     def test_update_refuses_repositories_not_created_as_drops_or_missing(self):
         for name in ('taken', 'missing-repo'):
