@@ -52,7 +52,8 @@ main{max-width:720px;margin:0 auto;padding:28px 16px 56px}
 h1{font:600 clamp(38px,9vw,64px)/1.02 ui-serif,Georgia,"Times New Roman",serif;margin:40px 0 12px;letter-spacing:-.01em}
 .lead{color:var(--muted);font-size:19px;margin:0 0 18px}
 .facts{font:600 12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
-img{display:block;width:100%;height:auto;border-radius:14px;border:1px solid var(--line);margin:26px 0}
+img{display:block;width:100%;height:auto;border-radius:14px;border:1px solid var(--line)}.card{position:relative;margin:26px 0}
+.card a{position:absolute;left:4.6%;top:13.8%;width:17%;height:7.4%;border-radius:8px}.card a:hover,.card a:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
 .btn{font:inherit;font-weight:600;min-height:52px;padding:0 22px;border-radius:12px;border:1px solid var(--lime);background:var(--lime);color:var(--bg);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
 .btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}.btn:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 .row{display:flex;gap:10px;flex-wrap:wrap}.primary .btn{flex:1 1 220px}
@@ -68,7 +69,7 @@ footer{margin-top:40px;color:var(--muted);font-size:12px}footer a{color:var(--in
 <h1>__TITLE__</h1>
 <p class="lead">__DESCRIPTION__</p>
 <div class="facts">__FACTS__</div>
-<img src="drop-card.png" alt="Card for the Hermes bot __TITLE__" width="1200" height="630">
+<div class="card"><img src="drop-card.png" alt="Card for the Hermes bot __TITLE__" width="1200" height="630">__CARDCREDIT__</div>
 
 <div class="primary row"><a class="btn" id="open" href="#">Adopt in my Hermes</a><button class="btn ghost" id="copy" type="button">Copy link</button></div>
 <ul class="steps">
@@ -142,6 +143,7 @@ def render_landing(info, *, repo='', page='', dashboard=DASHBOARD, plugin=PLUGIN
         '__REPO__': escape(repo), '__PAGE__': escape(page), '__SHARE__': escape(share), '__REPO_TEXT__': escape(repo or '<this repository link>'),
         '__PLUGIN__': escape(plugin),
         '__CREDIT__': ('Made with Bot Drops · by <a class="credit" href="' + escape(CREDIT_URL) + '" target="_blank" rel="noopener noreferrer">' + (('<img src="' + _avatar_uri() + '" alt="" width="20" height="20">') if _avatar_uri() else '') + escape(CREDIT_NAME) + '</a>. ') if credit else '',
+        '__CARDCREDIT__': ('<a href="' + escape(CREDIT_URL) + '" target="_blank" rel="noopener noreferrer" aria-label="' + escape(CREDIT_NAME) + ' on X" title="' + escape(CREDIT_NAME) + ' on X"></a>') if credit else '',
         '__DASHBOARD__': json.dumps(dashboard).replace('<', '\\u003c'), '__TEXT__': json.dumps(text).replace('<', '\\u003c'),
     }
     # One pass over the template only: author text is never scanned for placeholders.

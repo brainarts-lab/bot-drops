@@ -317,7 +317,7 @@ class Drops:
                     dest=staging/rel;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(p,dest)
             if not (staging/'distribution.yaml').exists():
                 write_json(staging/'distribution.yaml',{'name':profile if profile!='default' else 'my-agent',
-                           'description':'A shared Hermes agent.','version':'1.0.0','author':'','env_requires':[]})
+                           'description':'A shared Hermes bot','version':'1.0.0','author':'','env_requires':[]})
             manifest=read_data(staging/'distribution.yaml')
             if isinstance(manifest,dict) and not str(manifest.get('author') or '').strip():
                 # Recipients should see who shared the bot: use the GitHub account when signed in.

@@ -145,7 +145,7 @@ function createDropsApp(React, bridge) {
       h('div', {className: 'ad-cardtop'}, h('span', {className: 'ad-meta'}, 'by '+review.author+' · v'+review.version), button('← Back', () => {setReview(null); setAccepted(false);}, !!busy, 'ad-quiet')),
       h('h2', null, pretty(installed ? name : review.name)), h('p', {className: 'ad-description'}, review.description),
       installed ? h('section', {className: 'ad-success'},
-        h('h3', null, 'Done — this bot is yours.'),
+        h('h3', null, 'Done, this bot is yours'),
         h('p', null, 'Add your own model key in Hermes, then say hi.'),
         bridge.finishBot ? button('Open Bot Chat →', () => work('Opening Bot Chat…', () => bridge.finishBot(review)), !!busy) : h('p', {className: 'ad-muted'}, 'Open Hermes Desktop to chat with it.'),
         more('What happened?', h('p', null, 'A new Hermes profile was created. No message was sent and no model has run. Telegram or Discord accounts are separate connections.')))
@@ -226,7 +226,7 @@ function createDropsApp(React, bridge) {
 
     return h('main', {className: 'bot-drops'}, h('style', null, DROPS_CSS),
       h('header', {className: 'ad-header'}, h('span', {className: 'ad-brand'}, 'BRAINARTS', h('b', null, ' / BOT DROPS'))),
-      h('section', {className: 'ad-hero'}, h('h1', null, 'Find a bot.', h('br'), h('em', null, 'Make it yours.'))),
+      h('section', {className: 'ad-hero'}, h('h1', null, 'Find a bot', h('br'), h('em', null, 'Make it yours'))),
       h('nav', {'aria-label': 'Bot Drops', className: 'ad-tabs'}, button('Adopt', switchTab('adopt'), !!busy, tab === 'adopt' ? 'ad-active' : 'ad-quiet'), button('Share', switchTab('share'), !!busy, tab === 'share' ? 'ad-active' : 'ad-quiet')),
       busy && h('div', {role: 'status', 'aria-live': 'polite', className: 'ad-status'}, h('span', {className: 'ad-spinner'}), busy),
       error && h('div', {role: 'alert', className: 'ad-error'}, h('strong', null, 'That did not work'), h('p', null, error), button('Try again', () => work('Reloading…', refresh), !!busy, 'ad-quiet')),

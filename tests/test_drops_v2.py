@@ -165,7 +165,8 @@ class DropsV2Tests(unittest.TestCase):
         self.assertIn('OPENROUTER_API_KEY',page);self.assertIn('drop-card.png',page)
         import re
         self.assertEqual(re.findall(r'src="(https?:[^"]+)"',page),[])  # no external assets
-        self.assertEqual(re.findall(r'href="(https?:[^"]+)"',page),['https://x.com/chrisbrainarts'])  # only the credit link
+        self.assertEqual(re.findall(r'href="(https?:[^"]+)"',page),['https://x.com/chrisbrainarts']*2)  # only the credit links (card overlay, footer)
+        self.assertIn('aria-label="BrainArts on X"',page)
         self.assertIn('rel="noopener noreferrer"',page)
         plain=render_landing({'name':'x','description':'d','env_requires':[]},credit=False)
         self.assertNotIn('BrainArts',plain);self.assertEqual(re.findall(r'href="(https?:[^"]+)"',plain),[])
