@@ -1,0 +1,15 @@
+[project]
+name = "bot-drops"
+version = "0.3.0"
+description = "Bot Drops for Hermes: share a Hermes bot as a link and card, preview and adopt shared bots"
+requires-python = ">=3.11"
+license = "MIT"
+# Pillow and ruamel.yaml ship with Hermes (>=0.23.0); nothing extra is installed.
+dependencies = []
+
+[project.optional-dependencies]
+test = ["Pillow==13.0.0", "ruamel.yaml==0.18.16", "fastapi>=0.115,<0.120", "httpx>=0.27,<1"]
+
+[project.urls]
+Source = "https://github.com/brainarts-lab/bot-drops"
+Author = "https://x.com/chrisbrainarts"

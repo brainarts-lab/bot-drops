@@ -1,0 +1,14 @@
+name: carousel-writer
+version: 1.0.0
+author: BrainArts
+description: Turn an article into five clear, editable carousel slides. Keep the facts, find the story, and make each slide count.
+hermes_requires: ">=0.23.0"
+env_requires:
+  - name: OPENROUTER_API_KEY
+    description: Your own OpenRouter key, configured in Hermes. You can choose another supported provider instead.
+    required: true
+distribution_owned:
+  - SOUL.md
+  - config.yaml
+  - skills
+  - distribution.yaml

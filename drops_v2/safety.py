@@ -1,0 +1,242 @@
+"""Bounded, non-executing inspection of untrusted distribution bytes."""
+import hashlib
+import ipaddress
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import socket
+import subprocess
+import tempfile
+import time
+from urllib.parse import urlsplit
+
+from ruamel.yaml import YAML
+from ruamel.yaml.error import YAMLError
+from ruamel.yaml.events import AliasEvent
+
+MAX_BYTES = 20 * 1024 * 1024
+MAX_FILE = 1024 * 1024
+MAX_FILES = 1000
+NAME = re.compile(r'[a-z][a-z0-9-]{1,47}\Z')
+PRIVATE = {'.env', 'auth.json', 'memories', 'memory', 'sessions', 'logs', 'vault', 'home',
+           '.ssh', '.aws', '.config', 'mcp-tokens', 'backups', 'local', 'workspace', '.git'}
+SECRET = re.compile(r'(?:sk-(?:proj-|ant-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[A-Z0-9]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|(?:api[_-]?key|secret|token|password)["\']?\s*[=:]\s*[\"\']?(?!\$\{|YOUR_|<|\"?\s*$)[A-Za-z0-9_./+\-]{12,})', re.I)
+
+class DropError(ValueError):
+    pass
+
+
+def name_ok(name):
+    if not isinstance(name, str) or not NAME.fullmatch(name) or name in {'default','hermes','test','tmp','root','sudo'}:
+        raise DropError('Choose a new profile name: 2–48 lowercase letters, numbers and hyphens.')
+    return name
+
+
+def clean_text(value, limit=400):
+    text = str(value or '')
+    if len(text) > limit or any(ord(c) < 32 and c not in '\n\t' for c in text):
+        raise DropError('Metadata is too long or contains control characters.')
+    return text
+
+
+def source_url(value, resolve=True):
+    if not isinstance(value, str) or len(value) > 300:
+        raise DropError('Use a public GitHub or GitLab repository URL.')
+    if re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', value):
+        value = 'https://github.com/' + value
+    if value.startswith(('github.com/', 'gitlab.com/')):
+        value = 'https://' + value
+    # A GitHub Pages address of a shared bot (https://owner.github.io/repo/) names its repository.
+    pages = re.fullmatch(r'https://([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\.github\.io/([A-Za-z0-9_][A-Za-z0-9_.-]*)/?(?:index\.html)?', value)
+    if pages:
+        value = 'https://github.com/' + pages.group(1) + '/' + pages.group(2)
+    u = urlsplit(value)
+    if (u.scheme != 'https' or u.hostname not in {'github.com','gitlab.com'} or u.netloc != u.hostname
+            or u.query or u.fragment or not re.fullmatch(r'/[A-Za-z0-9_][A-Za-z0-9_.-]*/[A-Za-z0-9_][A-Za-z0-9_.-]*(?:\.git)?',u.path)):
+        raise DropError('Only public HTTPS GitHub/GitLab repositories are supported. No credentials, ports, redirects or local paths.')
+    if '..' in u.path:
+        raise DropError('Invalid repository path.')
+    if resolve:
+        try:
+            addresses = socket.getaddrinfo(u.hostname,443,type=socket.SOCK_STREAM)
+        except OSError as exc:
+            raise DropError('Repository host could not be resolved.') from exc
+        if not addresses or any(not ipaddress.ip_address(a[4][0]).is_global for a in addresses):
+            raise DropError('Repository host must resolve to public addresses.')
+    return value.rstrip('/')
+
+
+def tree_files(root, *, include_git=False):
+    root = Path(root)
+    if root.is_symlink() or not root.is_dir():
+        raise DropError('Drop must be an existing regular directory.')
+    total = 0
+    files = []
+    for current, dirs, names in os.walk(root, followlinks=False):
+        if not include_git:
+            dirs[:] = [d for d in dirs if d != '.git']
+        for n in dirs + names:
+            if any(ord(c)<32 for c in n):
+                raise DropError('File names must not contain control characters.')
+            p = Path(current)/n
+            if p.is_symlink():
+                raise DropError('Symlinks are not supported: '+str(p.relative_to(root)))
+        for n in names:
+            p=Path(current)/n
+            if not p.is_file():
+                raise DropError('Only regular files are supported.')
+            size=p.stat().st_size
+            total+=size
+            files.append(p)
+            if (not include_git and size > MAX_FILE) or total > MAX_BYTES or len(files)>MAX_FILES:
+                raise DropError('Drop exceeds the limit (20 MB, 1 MB per file, 1,000 files).')
+    return sorted(files)
+
+
+def digest(root):
+    h=hashlib.sha256()
+    for p in tree_files(root):
+        h.update(str(p.relative_to(root)).encode()+b'\0'+p.read_bytes()+b'\0')
+    return h.hexdigest()
+
+
+PLACEHOLDER = re.compile(r'your|example|placeholder|change-?me|redacted|dummy|sample|xxxx|\*\*\*|\.\.\.|<|\$\{', re.I)
+
+
+def looks_like_secret(match):
+    """Filter documentation placeholders and ordinary hyphenated words without weakening real-key detection."""
+    text = match.group(0)
+    if PLACEHOLDER.search(text):
+        return False
+    value = re.split(r'[=:]\s*["\']?', text, maxsplit=1)[-1] if re.search(r'[=:]', text) else text
+    if len(set(re.sub(r'[^A-Za-z0-9]', '', value).lower())) <= 3:
+        return False
+    # Plain "sk-..." words such as "sk-concurrency-diagnosis" are not keys; real keys contain digits.
+    if text.lower().startswith('sk-') and not re.search(r'\d', text):
+        return False
+    return True
+
+
+def contains_secret(content):
+    return any(looks_like_secret(m) for m in SECRET.finditer(content))
+
+
+def secret_scan(root, known_values=()):
+    for p in tree_files(root):
+        rel=p.relative_to(root)
+        if any(part in PRIVATE or part.startswith('.env.') for part in rel.parts):
+            raise DropError('Private data is not shareable: '+str(rel))
+        content=p.read_bytes().decode('utf-8',errors='ignore')
+        if contains_secret(content) or any(value in content for value in known_values):
+            raise DropError('Possible credential found in '+str(rel)+'. Remove it before sharing. The value was not logged.')
+
+
+def profile_credentials(source):
+    """Read only bounded local secret stores for exact-match scanning, never return their values to UI."""
+    values=set()
+    def collect(value):
+        if isinstance(value,str) and len(value)>=8: values.add(value)
+        elif isinstance(value,dict):
+            for v in value.values(): collect(v)
+        elif isinstance(value,list):
+            for v in value: collect(v)
+    for name in ('.env','auth.json'):
+        path=source/name
+        if not path.exists(): continue
+        if path.is_symlink() or path.stat().st_size>MAX_FILE:
+            raise DropError('Cannot scan the local credential store. Export was stopped.')
+        try:
+            content=path.read_text('utf-8')
+            if name.endswith('.json'): collect(json.loads(content))
+            else:
+                for line in content.splitlines():
+                    if line.strip() and not line.lstrip().startswith('#') and '=' in line:
+                        collect(line.split('=',1)[1].strip().strip('\"\''))
+        except (OSError,ValueError) as exc:
+            raise DropError('Cannot scan the local credential store. Export was stopped.') from exc
+    return values
+
+
+def _text_keys(value):
+    if isinstance(value,dict):
+        if not all(isinstance(k,str) for k in value): raise DropError('Duplicate or non-text configuration key.')
+        for v in value.values(): _text_keys(v)
+    elif isinstance(value,list):
+        for v in value: _text_keys(v)
+
+
+def read_data(path, fallback=None):
+    """Safe YAML/JSON read with ruamel.yaml (ships with Hermes): no aliases, no duplicate or non-text keys."""
+    if not path.exists():
+        return {} if fallback is None else fallback
+    try:
+        text=path.read_text('utf-8')
+        # Forbid aliases before constructing anything (expansion bombs, ambiguous previews).
+        if any(isinstance(event,AliasEvent) for event in YAML(typ='safe',pure=True).parse(text)):
+            raise DropError('YAML aliases are not supported.')
+        value=YAML(typ='safe',pure=True).load(text)  # duplicate keys raise DuplicateKeyError
+        _text_keys(value)
+    except DropError: raise
+    except YAMLError as exc:
+        if type(exc).__name__=='DuplicateKeyError': raise DropError('Duplicate or non-text configuration key.') from exc
+        raise DropError('Invalid YAML/JSON: '+path.name) from exc
+    except (UnicodeError,RecursionError) as exc:
+        raise DropError('Invalid YAML/JSON: '+path.name) from exc
+    try: json.dumps(value,allow_nan=False)
+    except (TypeError,ValueError,RecursionError) as exc:
+        raise DropError('Configuration must contain plain JSON-compatible values.') from exc
+    return value if value is not None else ({} if fallback is None else fallback)
+
+
+def run_bounded(argv, *, env, cwd, monitored=None, timeout=45, detail=False):
+    """No shell. Kill the whole process group, including descendants after parent exit."""
+    with tempfile.TemporaryFile() as output:
+        proc=subprocess.Popen(argv,env=env,cwd=cwd,stdin=subprocess.DEVNULL,stdout=output,
+                              stderr=subprocess.STDOUT,start_new_session=True)
+        try:
+            deadline=time.monotonic()+timeout
+            while proc.poll() is None:
+                if time.monotonic()>deadline:
+                    raise DropError('Operation timed out. No automatic retry was started.')
+                if monitored and Path(monitored).exists():
+                    tree_files(monitored,include_git=True)
+                if output.tell()>MAX_FILE:
+                    raise DropError('Operation produced too much output.')
+                time.sleep(.05)
+            if proc.returncode:
+                if detail:
+                    output.seek(0)
+                    text=' '.join(output.read(2000).decode('utf-8',errors='replace').split())[:300]
+                    raise DropError('GitHub said: '+(text or 'the operation failed.'))
+                raise DropError('Operation failed. Check repository access or the requested profile name.')
+            output.seek(0)
+            return output.read(MAX_FILE).decode('utf-8',errors='replace')
+        finally:
+            try: os.killpg(proc.pid,signal.SIGKILL)
+            except ProcessLookupError: pass
+            proc.wait(timeout=5)
+
+
+def git_env():
+    env={k:os.environ[k] for k in ('PATH','LANG','TMPDIR','HOME') if k in os.environ}
+    env.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull, GIT_TERMINAL_PROMPT='0',
+               GIT_LFS_SKIP_SMUDGE='1',GIT_ALLOW_PROTOCOL='https')
+    return env
+
+
+def clone_public(url, target):
+    url=source_url(url)
+    args=['git','-c','http.followRedirects=false','-c','credential.helper=',
+          '-c','core.hooksPath=/dev/null','-c','protocol.file.allow=never']
+    env=git_env()
+    run_bounded(args+['clone','--depth','1','--no-checkout','--',url,str(target)],env=env,
+                cwd=target.parent,monitored=target)
+    sha=run_bounded(args+['rev-parse','HEAD'],env=env,cwd=target).strip()
+    entries=run_bounded(args+['ls-tree','-r','HEAD'],env=env,cwd=target)
+    if any(line.startswith(('120000 ','160000 ')) for line in entries.splitlines()):
+        raise DropError('Symlinks and Git submodules are not supported.')
+    run_bounded(args+['checkout','--force','HEAD'],env=env,cwd=target,monitored=target)
+    tree_files(target)
+    return sha

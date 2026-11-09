@@ -1,0 +1,10 @@
+{
+  "name": "bot-drops",
+  "label": "Bot Drops",
+  "description": "Preview, adopt and share Hermes bots.",
+  "icon": "Package",
+  "version": "0.3.0",
+  "tab": {"path": "/drops/import", "position": "after:skills"},
+  "entry": "dist/index.js",
+  "api": "plugin_api.py"
+}
