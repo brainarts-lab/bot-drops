@@ -56,7 +56,7 @@ Profiles are not a security sandbox: a bot's personality and skills guide your a
 ## Development
 
 ```sh
-python -m pip install ".[test]"
+python -m pip install "Pillow==13.0.0" "ruamel.yaml==0.18.16" "fastapi>=0.115,<0.120" "httpx>=0.27,<1"
 python -m unittest discover -s tests -v
 node --test tests/test_drops_ui.cjs
 python scripts/build-ui.py   # rebuilds dashboard/dist/index.js and desktop/plugin.js from ui/
