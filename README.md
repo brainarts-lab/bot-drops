@@ -66,7 +66,7 @@ Profiles are not a security sandbox: a bot's personality and skills guide your a
 ## Limits
 
 - Built and tested on macOS. Linux and native Windows run the same code; file locking, process cleanup, paths and Git's certificate store are handled per system. Windows support is new in 0.5.0 and has not been confirmed on a Windows machine yet, so please report what you see.
-- A bot name you removed earlier cannot be used again for a new bot (Hermes 0.23.0 keeps a mark for removed profiles). Bot Drops suggests a free name.
+- On Hermes 0.23.0, a bot name you removed earlier cannot be used again for a new bot; Bot Drops suggests a free name. Hermes 0.23.1 lifts this.
 - Opening a link on a phone cannot jump into Hermes directly. The bot page offers a message for your Hermes chat instead.
 - Hermes Desktop support covers local Hermes sources.
 - Shared bots are public repositories. Private sharing is not supported.

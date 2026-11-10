@@ -112,7 +112,9 @@ def source_url(value, resolve=True):
     return value.rstrip('/')
 
 
-def tree_files(root, *, include_git=False):
+def tree_files(root, *, include_git=False, live=False):
+    """Regular files below root, within the limits. `live` is for a folder a program is still writing to:
+    a file that is gone again by the time it is looked at (Git's temporary and lock files) is skipped."""
     root = Path(root)
     if root.is_symlink() or not root.is_dir():
         raise DropError('Drop must be an existing regular directory.')
@@ -129,9 +131,13 @@ def tree_files(root, *, include_git=False):
                 raise DropError('Symlinks are not supported: '+rel_path(p,root))
         for n in names:
             p=Path(current)/n
-            if not p.is_file():
+            try: found=p.lstat()
+            except OSError:
+                if live: continue
+                raise DropError('Only regular files are supported.') from None
+            if not stat.S_ISREG(found.st_mode):
                 raise DropError('Only regular files are supported.')
-            size=p.stat().st_size
+            size=found.st_size
             total+=size
             files.append(p)
             if (not include_git and size > MAX_FILE) or total > MAX_BYTES or len(files)>MAX_FILES:
@@ -319,7 +325,7 @@ def run_bounded(argv, *, env, cwd, monitored=None, timeout=45, detail=False):
                 if time.monotonic()>deadline:
                     raise DropError('Operation timed out. No automatic retry was started.')
                 if monitored and Path(monitored).exists():
-                    tree_files(monitored,include_git=True)
+                    tree_files(monitored,include_git=True,live=True)
                 if output.tell()>MAX_FILE:
                     raise DropError('Operation produced too much output.')
                 time.sleep(.05)

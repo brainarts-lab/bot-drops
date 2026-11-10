@@ -1,5 +1,5 @@
 name: bot-drops
-version: "0.5.0"
+version: "0.5.1"
 description: "Share a Hermes bot as a link and card. Preview and adopt shared bots as new profiles."
 author: BrainArts
 requires_hermes: ">=0.23.0"

@@ -49,6 +49,18 @@ class DropsV2Tests(unittest.TestCase):
                     'https://example.github.io/sample/?next=x','https://example.github.io/sample/?v=8bbf949#x','https://github.com/a/b?v=8bbf949'):
             with self.subTest(link=bad),self.assertRaises(DropError): source_url(bad,resolve=False)
 
+    def test_files_that_vanish_while_git_works_do_not_fail_the_preview(self):
+        # Seen for real on 10 Nov 2026: the size watcher met one of Git's lock files after Git had removed it again,
+        # and a preview of a healthy public bot failed with "Only regular files are supported."
+        root=Path(self.tmp.name)/'busy';root.mkdir();(root/'kept.txt').write_text('x')
+        listing=[(str(root),[],['kept.txt','index.lock'])]  # index.lock was listed, then removed
+        with patch('drops_v2.safety.os.walk',return_value=listing):
+            self.assertEqual([p.name for p in tree_files(root,include_git=True,live=True)],['kept.txt'])
+            with self.assertRaises(DropError): tree_files(root)  # the finished download is still checked strictly
+        if hasattr(os,'mkfifo'):
+            os.mkfifo(root/'pipe')
+            with self.assertRaises(DropError): tree_files(root,include_git=True,live=True)  # odd files are never tolerated
+
     def test_private_dns_rejected(self):
         with patch('drops_v2.safety.socket.getaddrinfo',return_value=[(2,1,6,'',('127.0.0.1',443))]),self.assertRaises(DropError):
             source_url('example/sample')
@@ -209,6 +221,9 @@ class DropsV2Tests(unittest.TestCase):
         self.assertIn('removed earlier',str(raised.exception))
         self.assertFalse((self.drops.profiles/'old-bot').exists())
         self.assertEqual(self.drops.get(info['id'])['status'],'review')  # the preview can still be adopted under a new name
+        # Hermes 0.23.1 clears the mark itself during `hermes profile install`: the name is free again there.
+        with patch('drops_v2.core.hermes_version',return_value=(0,23,1)): self.assertEqual(self.drops.retired_names(),[])
+        with patch('drops_v2.core.hermes_version',return_value=(0,23,0)): self.assertEqual(self.drops.retired_names(),['old-bot'])
 
     def test_snapshot_is_pinned_and_success_idempotent(self):
         info=self.record();original=(self.source/'SOUL.md').read_text()

@@ -241,6 +241,14 @@ def hermes_program():
     return None
 
 
+def hermes_version():
+    """(major, minor, patch) of the Hermes this plugin is running in; None when it runs on its own, as in tests."""
+    loaded=sys.modules.get('hermes_cli')
+    try: found=re.match(r'(\d+)\.(\d+)\.(\d+)',str(getattr(loaded,'__version__','')))
+    except Exception: found=None
+    return tuple(int(part) for part in found.groups()) if found else None
+
+
 class Drops:
     def __init__(self, home, *, hermes=None):
         self.home=Path(home).resolve()
@@ -413,8 +421,11 @@ class Drops:
         return sorted(p.name for p in self.profiles.iterdir() if p.is_dir() and not p.is_symlink() and NAME.fullmatch(p.name))
 
     def retired_names(self):
-        """Names of bots that were removed earlier. Hermes 0.23 keeps a mark for each and stops half way
-        when a shared bot is installed under such a name, so adoption asks for another name instead."""
+        """Names of bots that were removed earlier and cannot be taken again on this Hermes.
+        Hermes 0.23.0 keeps a mark for each removed profile and stops half way when a shared bot is installed
+        under such a name; adoption asks for another name instead. Hermes 0.23.1 clears the mark itself."""
+        version=hermes_version()
+        if version is not None and version>=(0,23,1): return []
         marks=self.profiles/'.deleted'
         if not marks.is_dir() or marks.is_symlink(): return []
         return sorted(p.name for p in marks.iterdir() if NAME.fullmatch(p.name))
