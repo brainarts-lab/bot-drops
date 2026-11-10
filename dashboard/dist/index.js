@@ -1,4 +1,4 @@
-const DROPS_CSS = ".bot-drops{--ad-ink:#19352b;--ad-muted:#56685e;--ad-line:#d5ded1;box-sizing:border-box;background:#f5f5ed;color:var(--ad-ink);font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;padding:30px clamp(18px,4vw,64px);min-height:100%;overflow:auto;font-size:15px;line-height:1.55}.bot-drops *{box-sizing:border-box}.bot-drops button,.bot-drops input,.bot-drops select{font:inherit}.bot-drops button:focus-visible,.bot-drops input:focus-visible,.bot-drops select:focus-visible,.bot-drops summary:focus-visible{outline:3px solid #527a28;outline-offset:3px}.ad-header,.ad-footer,.ad-cardtop{display:flex;align-items:center;justify-content:space-between;gap:16px}.ad-brand{font-size:12px;letter-spacing:.12em}.ad-brand b{font-weight:500;color:var(--ad-muted)}.ad-tag,.ad-pill{font-size:10px;letter-spacing:.07em;padding:6px 10px;border:1px solid var(--ad-line);border-radius:20px;white-space:nowrap}.ad-hero{max-width:760px;margin:54px 0 30px}.ad-eyebrow,.ad-step{font-size:11px;letter-spacing:.15em;font-weight:650;color:#607653}.ad-hero h1{font-size:clamp(40px,5vw,68px);line-height:1.04;letter-spacing:-.055em;margin:16px 0 22px;font-weight:650}.ad-hero em{font-family:Georgia,serif;font-weight:400}.ad-hero p:last-child{max-width:540px;color:var(--ad-muted);font-size:17px}.ad-tabs{display:flex;gap:8px;border-bottom:1px solid var(--ad-line);padding-bottom:18px;margin-bottom:24px}.ad-button{border:1px solid var(--ad-ink);border-radius:9px;background:var(--ad-ink);color:#f9fff6;padding:12px 19px;font-weight:600;cursor:pointer;line-height:1.35;text-align:center;min-height:44px;transition:background .15s,transform .15s}.ad-button:hover:not(:disabled){background:#2c5040;transform:translateY(-1px)}.ad-button:disabled{opacity:.45;cursor:not-allowed}.ad-secondary{background:#d6f492;color:#19352b;border-color:#bed681}.ad-secondary:hover:not(:disabled){background:#c9e985}.ad-quiet{background:transparent;color:var(--ad-ink);border-color:transparent;font-weight:500}.ad-quiet:hover:not(:disabled){background:#e6ecdf}.ad-active{background:#d6f492;color:#19352b;border-color:#bed681}.ad-layout{display:grid;grid-template-columns:minmax(0,1fr) 215px;gap:28px;align-items:start;max-width:1200px}.ad-panel{background:#fffef8;border:1px solid var(--ad-line);border-radius:18px;padding:clamp(20px,3vw,36px);box-shadow:0 8px 30px #20391c04;min-width:0}.ad-panel h2{font-size:28px;line-height:1.2;letter-spacing:-.035em;margin:14px 0 18px;overflow-wrap:anywhere}.ad-panel h3,.ad-recent h3{font-size:16px;font-weight:650;margin:24px 0 12px}.ad-panel p{margin:9px 0 16px}.ad-field{display:flex;flex-direction:column;gap:8px;margin:20px 0 14px;font-size:13px;font-weight:600}.ad-field input,.ad-field select{width:100%;padding:13px 14px;background:#fffefb;border:1px solid #b9c7b5;border-radius:8px;color:#19352b;min-height:48px}.ad-muted,.ad-limits{font-size:12px;color:var(--ad-muted)}.ad-example{display:flex;justify-content:space-between;align-items:center;gap:20px;border-top:1px solid var(--ad-line);margin-top:30px;padding-top:25px}.ad-example p{font-size:13px;color:var(--ad-muted);margin-bottom:0}.ad-example button{flex-shrink:0}.ad-recent{padding:0 4px}.ad-recent h3{margin-top:6px}.ad-recent button{display:block;text-align:left;width:100%;font-size:12px;overflow-wrap:anywhere}.ad-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;padding:20px 0;border-bottom:1px solid var(--ad-line);margin-bottom:24px}.ad-facts small{display:block;font-size:10px;letter-spacing:.1em;color:var(--ad-muted)}.ad-facts b{font-size:13px;overflow-wrap:anywhere}.ad-keys{padding:0;list-style:none}.ad-keys li{border:1px solid var(--ad-line);border-radius:10px;padding:14px;margin:10px 0}.ad-keys code{font-size:12px;margin-right:10px}.ad-keys p{font-size:13px;margin:9px 0 0}.ad-pill{background:#edf4e6}.bot-drops code,.bot-drops pre{font:12px/1.5 ui-monospace,SFMono-Regular,monospace;overflow-wrap:anywhere;white-space:pre-wrap}.bot-drops pre{padding:12px;background:#eff1e9;border-radius:6px;max-height:350px;overflow:auto}.bot-drops details{border-bottom:1px solid var(--ad-line);padding:12px 0}.bot-drops summary{cursor:pointer;font-size:13px;font-weight:600;overflow-wrap:anywhere}.bot-drops details p{font-size:12px;overflow-wrap:anywhere;white-space:pre-wrap}.bot-drops details strong{font-size:12px}.ad-warnings{background:#fff5d9;border:1px solid #e7d9a8;border-radius:10px;padding:4px 16px 12px}.ad-warnings h3{margin-top:14px}.ad-source{margin:20px 0}.ad-instructions{margin:22px 0}.ad-adopt{border-top:1px solid var(--ad-line);margin-top:28px;padding-top:4px}.ad-check{display:flex;align-items:flex-start;gap:11px;font-size:13px;margin:20px 0;max-width:680px}.ad-check input{width:18px;height:18px;flex-shrink:0;margin-top:2px;accent-color:#294c37}.ad-trust,.ad-note{font-size:13px;background:#eaf0df;padding:14px;border-radius:8px}.ad-status,.ad-error{border-radius:10px;padding:16px;margin-bottom:20px;font-size:13px}.ad-status{background:#e4efda;display:flex;align-items:center;gap:12px}.ad-error{background:#fff0e8;border:1px solid #d7aa94;color:#76391f}.ad-error p{margin:8px 0}.ad-spinner{width:15px;height:15px;border:2px solid #abbfa0;border-top-color:#27482e;border-radius:50%;animation:ad-spin 1s linear infinite}.ad-success{background:#eaf4df;border:1px solid #c2d6ae;border-radius:12px;padding:20px;margin:20px 0}.ad-success h3{margin-top:0}.ad-success li{margin-bottom:8px}.ad-actions{display:flex;flex-wrap:wrap;gap:10px}.ad-share{max-width:850px}.ad-footer{font-size:11px;color:var(--ad-muted);border-top:1px solid var(--ad-line);padding-top:22px;margin-top:42px}.ad-limits{margin:12px 0 0;font-size:10px;max-width:800px}.ad-description{color:var(--ad-muted)}@keyframes ad-spin{to{transform:rotate(360deg)}}@media(max-width:850px){.ad-layout{grid-template-columns:minmax(0,1fr)}.ad-recent{border-top:1px solid var(--ad-line);padding-top:18px}.ad-recent button{width:auto;display:inline-block}.ad-tag{display:none}.ad-hero{margin-top:36px}.ad-footer{align-items:flex-start;flex-direction:column;gap:6px}}@media(max-width:480px){.ad-example{flex-direction:column;align-items:flex-start}.ad-facts{grid-template-columns:1fr 1fr}.ad-hero h1{font-size:44px}.ad-tabs button{flex:1;padding:12px 10px}.ad-cardtop{align-items:flex-start}.ad-panel{padding:20px}.ad-button{max-width:100%}}@media(prefers-reduced-motion:reduce){.ad-spinner{animation:none}.ad-button{transition:none}}\n.ad-hero{margin:34px 0 24px}.ad-hero h1{font-size:clamp(34px,4.6vw,58px);margin:0}.ad-panel h2{margin-top:0}.ad-inline{display:flex;gap:10px;margin:18px 0 8px}.ad-inline input{flex:1;min-width:0;padding:13px 14px;background:#fffefb;border:1px solid #b9c7b5;border-radius:8px;color:#19352b;min-height:48px}.ad-link{background:none;border:0;padding:0;color:var(--ad-ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font-weight:600}.ad-link:disabled{opacity:.45;cursor:not-allowed}.ad-meta{font-size:12px;color:var(--ad-muted)}.ad-cardtop{margin-bottom:6px}.ad-chips{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0}.ad-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ad-muted);min-width:52px}.ad-chip{font-size:12px;padding:5px 11px;border-radius:20px;background:#edf4e6;border:1px solid var(--ad-line);overflow-wrap:anywhere}.bot-drops .ad-warnings{border:1px solid #e7d9a8;border-radius:10px;padding:10px 16px;margin:16px 0}.ad-warning{border-top:1px solid #efe3b8;padding:10px 0 2px}.ad-warning b{font-size:13px}.bot-drops .ad-warning p{margin:4px 0}.ad-warning small{font-size:12px;color:var(--ad-muted)}.ad-adopt{margin-top:20px}.ad-hint{font-size:12px;color:#76391f;margin:-6px 0 6px}.bot-drops .ad-more{margin-top:14px;border-bottom:0}.ad-more summary{color:var(--ad-muted);font-weight:500}.bot-drops .ad-more p{font-size:13px;margin:10px 0}.ad-lists{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:8px 0 4px}.ad-lists b{font-size:13px}.ad-lists ul{margin:6px 0 0;padding-left:18px;font-size:14px}.ad-lists div:last-child ul{color:var(--ad-muted)}.ad-success ol{padding-left:20px}@media(max-width:480px){.ad-inline{flex-direction:column}.ad-lists{grid-template-columns:1fr}}\n.ad-post{width:100%;margin:12px 0;padding:12px;border:1px solid var(--ad-line);border-radius:8px;background:#fffefb;color:var(--ad-ink);font:inherit;font-size:14px;resize:vertical}.ad-chip{text-decoration:none;color:var(--ad-ink)}\n.ad-sharegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:16px 0 10px}.ad-sharegrid .ad-button{text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center}\n.ad-dest{margin:8px 0 4px}.ad-segment{display:flex;gap:8px;margin:4px 0 14px}.ad-inline-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0 14px}\n";
+const DROPS_CSS = "/* Bot Drops shares one look with its cards and bot pages: deep green, lime, the Hermes typefaces.\n   The bot card is the one loud element; everything around it stays quiet. */\n.bot-drops{\n  --bg:#0c2420;--panel:#11302a;--field:#0a1e1a;--ink:#eef3e6;--muted:#9fb5ab;--line:#24423a;--lime:#c6f36a;--amber:#f2cf7a;--red:#ffab99;\n  --title:'Collapse',ui-serif,Georgia,'Times New Roman',serif;\n  --mark:'Rules Expanded',ui-sans-serif,system-ui,sans-serif;\n  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;\n  box-sizing:border-box;background:var(--bg);color:var(--ink);min-height:100%;overflow:auto;\n  font:15px/1.55 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;padding:26px clamp(16px,4vw,56px) 34px;\n}\n.bot-drops *{box-sizing:border-box}\n.bot-drops button,.bot-drops input,.bot-drops select,.bot-drops textarea{font:inherit}\n.bot-drops :focus-visible{outline:2px solid var(--lime);outline-offset:3px;border-radius:6px}\n.bot-drops p{margin:0 0 12px}\n.bot-drops a{color:var(--ink);text-underline-offset:3px}\n.bd-wrap{max-width:1060px;margin:0 auto}\n\n/* Header */\n.bd-top{display:flex;align-items:center;justify-content:space-between;gap:12px 20px;flex-wrap:wrap;margin-bottom:clamp(22px,3.6vw,38px)}\n.bd-mark{font:700 13px/1 var(--mark);letter-spacing:.06em;white-space:nowrap}\n.bd-mark b{color:var(--lime);font-weight:700;margin-left:.6em}\n.bd-top-right{display:flex;align-items:center;gap:14px;flex-wrap:wrap}\n.bd-tabs{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:4px;gap:2px}\n.bd-tabs button{border:0;background:none;border-radius:999px;min-height:38px;padding:0 20px;font-weight:600;color:var(--muted);cursor:pointer}\n.bd-tabs button[aria-selected=\"true\"]{background:var(--lime);color:var(--bg)}\n.bd-tabs button:disabled{cursor:default}\n.bd-status{display:inline-flex;align-items:center;gap:9px;font-size:13px;color:var(--muted)}\n.bd-spin{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--lime);border-radius:50%;animation:bd-spin .9s linear infinite}\n\n/* Type */\n.bd-h1{font:700 clamp(42px,4.9vw,62px)/.98 var(--title);letter-spacing:-.01em;margin:0 0 20px}\n.bd-h1 span{display:block;color:var(--lime)}\n.bd-h2{font:700 clamp(32px,4.2vw,48px)/1.02 var(--title);margin:0 0 10px;overflow-wrap:anywhere}\n.bd-lead{color:var(--muted);font-size:17px;max-width:46ch}\n.bd-muted{color:var(--muted);font-size:13px}\n.bd-by{font:700 12px/1.5 var(--mono);letter-spacing:.06em;color:var(--muted);text-transform:uppercase;margin:0 0 14px}\n\n/* Buttons and fields */\n.bd-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 22px;border-radius:12px;border:1px solid var(--lime);background:var(--lime);color:var(--bg);font-weight:650;cursor:pointer;text-decoration:none;text-align:center;transition:filter .15s}\n.bot-drops a.bd-btn{color:var(--bg)}\n.bd-btn:hover:not(:disabled){filter:brightness(1.08)}\n.bd-btn:disabled{opacity:.38;cursor:not-allowed}\n.bd-btn.ghost,.bot-drops a.bd-btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}\n.bd-btn.ghost:hover:not(:disabled){border-color:var(--muted);filter:none}\n.bd-btn.text{background:none;border-color:transparent;color:var(--muted);padding:0 6px;min-height:40px;font-weight:500}\n.bd-btn.text:hover:not(:disabled){color:var(--ink);filter:none}\n.bd-btn.wide{width:100%}\n.bd-linkbtn{background:none;border:0;padding:0;color:var(--lime);font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px}\n.bd-linkbtn:disabled{opacity:.45;cursor:not-allowed}\n.bd-field{display:flex;flex-direction:column;gap:7px;margin:0 0 16px;font-size:13px;font-weight:600}\n.bd-field small{font-weight:400;color:var(--muted)}\n.bd-field input,.bd-field select,.bd-row input,.bd-post{width:100%;min-height:48px;padding:12px 14px;background:var(--field);border:1px solid var(--line);border-radius:12px;color:var(--ink);font-weight:400;font-size:15px}\n.bd-field input::placeholder,.bd-row input::placeholder{color:#6f877c}\n.bd-field select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 20px) 21px,calc(100% - 14px) 21px;background-size:6px 6px;background-repeat:no-repeat;padding-right:40px}\n.bd-row{display:flex;gap:10px;margin:22px 0 12px;max-width:560px}\n.bd-row input{flex:1;min-width:0}\n.bd-check{display:flex;align-items:flex-start;gap:11px;font-size:14px;margin:16px 0;cursor:pointer}\n.bd-check input{width:19px;height:19px;flex-shrink:0;margin-top:1px;accent-color:var(--lime)}\n.bd-hint{font-size:13px;color:var(--amber);margin:-8px 0 12px}\n.bd-seg{display:inline-flex;border:1px solid var(--line);border-radius:12px;padding:3px;margin:0 0 14px}\n.bd-seg button{border:0;background:none;border-radius:9px;min-height:38px;padding:0 16px;color:var(--muted);font-weight:600;cursor:pointer}\n.bd-seg button[aria-checked=\"true\"]{background:var(--panel);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}\n\n/* The card */\n.bd-card{margin:0;position:relative}\n.bd-card img,.bd-card-wait{display:block;width:100%;height:auto;aspect-ratio:1200/630;border-radius:16px;border:1px solid var(--line);background:var(--panel);box-shadow:0 30px 60px -28px #000c,0 2px 0 #ffffff08 inset}\n.bd-card img{animation:bd-drop .75s cubic-bezier(.2,.9,.25,1) both}\n.bd-card-wait{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;box-shadow:none;border-style:dashed;padding:20px;text-align:center}\n.bd-card figcaption{font-size:13px;color:var(--muted);margin-top:12px}\n.bd-example{display:block;width:100%;padding:0;border:0;background:none;cursor:pointer;text-align:left;transform:rotate(1.6deg);transition:transform .25s}\n.bd-example:hover:not(:disabled),.bd-example:focus-visible{transform:rotate(0) translateY(-3px)}\n.bd-example:disabled{cursor:default}\n.bd-example figcaption b{color:var(--lime);font-weight:600}\n\n/* Screens */\n.bd-start{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:clamp(28px,5vw,64px);align-items:center}\n.bd-recent{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:26px;font-size:13px;color:var(--muted)}\n.bd-chip{display:inline-flex;align-items:center;font-size:13px;line-height:1.3;padding:5px 12px;border-radius:999px;border:1px solid var(--line);background:none;color:var(--ink);overflow-wrap:anywhere}\nbutton.bd-chip{cursor:pointer}\nbutton.bd-chip:hover:not(:disabled){border-color:var(--muted)}\n.bd-chip.on{border-color:var(--lime);color:var(--lime)}\n.bd-two{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:clamp(22px,4vw,48px);align-items:start}\n.bd-side{position:sticky;top:8px}\n.bd-panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:clamp(18px,2.6vw,28px)}\n.bd-panel h3{font-size:17px;margin:0 0 14px}\n.bd-facts{display:grid;grid-template-columns:auto 1fr;gap:10px 16px;align-items:start;margin:22px 0 6px;font-size:14px}\n.bd-facts dt{color:var(--muted);padding-top:5px}\n.bd-facts dd{margin:0;display:flex;flex-wrap:wrap;gap:7px}\n.bd-lists{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:4px 0 18px;font-size:14px}\n.bd-lists b{font-size:13px}\n.bd-lists ul{margin:6px 0 0;padding:0;list-style:none}\n.bd-lists li{padding-left:18px;position:relative}\n.bd-lists li::before{content:\"\";position:absolute;left:2px;top:9px;width:6px;height:6px;border-radius:50%;background:var(--lime)}\n.bd-lists div:last-child{color:var(--muted)}\n.bd-lists div:last-child li::before{background:none;border:1px solid var(--muted)}\n.bd-side .bd-lists{margin:22px 0 0;padding-top:18px;border-top:1px solid var(--line)}\n.bd-form-lists{display:none}\n.bd-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:0 14px}\n.bd-pair .bd-field{margin-bottom:8px}\n.bd-url{font:12px/1.5 var(--mono);color:var(--muted);margin:0 0 14px;overflow-wrap:anywhere}\n.bd-live{text-align:center;max-width:760px;margin:0 auto}\n.bd-live .bd-card{margin:26px 0 22px}\n.bd-copy{display:flex;gap:10px;margin:0 0 14px}\n.bd-copy input{flex:1;min-width:0;min-height:48px;padding:0 14px;background:var(--field);border:1px solid var(--line);border-radius:12px;font:13px/1 var(--mono);color:var(--ink)}\n.bd-sharegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:0 0 8px}\n.bd-actions{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}\n.bd-done{border:1px solid var(--lime);border-radius:16px;padding:20px;margin:0 0 18px;background:#c6f36a12}\n.bd-done h3{font:700 26px/1.1 var(--title);margin:0 0 8px}\n\n/* Details, notes, errors */\n.bot-drops details{border-top:1px solid var(--line);padding:12px 0;text-align:left}\n.bot-drops summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--muted)}\n.bot-drops summary:hover{color:var(--ink)}\n.bot-drops details p,.bot-drops details li{font-size:13px;color:var(--muted);overflow-wrap:anywhere}\n.bot-drops details p{margin:10px 0}\n.bot-drops code,.bot-drops pre{font:12px/1.5 var(--mono);overflow-wrap:anywhere;white-space:pre-wrap;color:var(--ink)}\n.bot-drops pre{padding:12px;background:var(--field);border:1px solid var(--line);border-radius:10px;max-height:340px;overflow:auto}\n.bot-drops details.bd-notes{border:1px solid #f2cf7a55;border-radius:12px;padding:10px 14px;margin:16px 0;background:#f2cf7a0d}\n.bd-notes summary{color:var(--amber)}\n.bd-note{border-top:1px solid #f2cf7a33;padding:10px 0 2px;margin-top:10px}\n.bd-note b{font-size:13px}\n.bd-note small{font-size:12px;color:var(--muted)}\n.bd-error{border:1px solid #ffab9966;background:#ffab9912;border-radius:14px;padding:14px 16px;margin:0 0 22px}\n.bd-error strong{color:var(--red)}\n.bd-error p{margin:6px 0 8px;font-size:14px}\n.bd-post{resize:vertical;min-height:84px;font-size:14px}\n.bd-foot{display:flex;justify-content:space-between;gap:8px 20px;flex-wrap:wrap;font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:18px;margin-top:clamp(36px,6vw,64px)}\n.bot-drops .bd-foot a{color:var(--muted)}\n\n@keyframes bd-spin{to{transform:rotate(360deg)}}\n@keyframes bd-drop{0%{opacity:0;transform:translateY(-36px) rotate(-3.5deg) scale(.96)}55%{opacity:1;transform:translateY(5px) rotate(.7deg) scale(1.004)}100%{opacity:1;transform:none}}\n@media(max-width:820px){\n  .bd-start,.bd-two{grid-template-columns:minmax(0,1fr)}\n  .bd-side{position:static}\n  .bd-two.share .bd-side{order:-1}\n  .bd-side .bd-lists{display:none}\n  .bd-form-lists{display:block}\n  .bd-example{transform:none;max-width:520px}\n}\n@media(max-width:480px){\n  .bd-row,.bd-copy{flex-direction:column}\n  .bd-lists{grid-template-columns:1fr}\n  .bd-top{justify-content:center}\n  .bd-tabs button{padding:0 26px}\n}\n@media(prefers-reduced-motion:reduce){\n  .bd-card img,.bd-spin{animation:none}\n  .bd-example,.bd-btn{transition:none}\n}\n";
 /* Shared consumer flow. Built into both host adapters by scripts/build-drops-ui.py. */
 
 /* A shared "Open in Hermes" link (hermes://drops/import?url=…) lands on #/drops/import?url=…
@@ -13,12 +13,25 @@ function dropLinkFromLocation(loc) {
   } catch { return ''; }
 }
 
+/* First free bot name: carousel-writer, carousel-writer-2, … */
+function freeBotName(base, taken) {
+  if (!taken.includes(base)) return base;
+  for (let i = 2; i < 100; i++) {
+    const next = base.slice(0, 44) + '-' + i;
+    if (!taken.includes(next)) return next;
+  }
+  return base;
+}
+
 function createDropsApp(React, bridge) {
   const h = React.createElement;
   const {useState, useEffect, useRef} = React;
-  const button = (label, action, disabled = false, kind = '') => h('button', {type: 'button', className: 'ad-button '+kind, onClick: action, disabled}, label);
+  const button = (label, action, disabled = false, kind = '') => h('button', {type: 'button', className: 'bd-btn '+kind, onClick: action, disabled}, label);
   const pretty = name => String(name || '').replaceAll('-', ' ');
-  return function AgentDrops() {
+  const titled = name => pretty(name).replace(/\b[a-z]/g, c => c.toUpperCase());
+  const SLUG = /^[a-z0-9][a-z0-9-]{1,62}$/;
+  const TAGLINE = 140;
+  return function BotDrops() {
     const incoming = useRef(typeof window === 'undefined' ? '' : dropLinkFromLocation(window.location));
     const [boot, setBoot] = useState(null), [tab, setTab] = useState('adopt');
     const [url, setUrl] = useState(incoming.current), [review, setReview] = useState(null), [name, setName] = useState('');
@@ -27,7 +40,8 @@ function createDropsApp(React, bridge) {
     const [instructions, setInstructions] = useState(null);
     const [gh, setGh] = useState(null), [owner, setOwner] = useState(''), [repoName, setRepoName] = useState(''), [published, setPublished] = useState(null);
     const [target, setTarget] = useState('new'), [existing, setExisting] = useState(''), [credit, setCredit] = useState(true);
-    const running = useRef(false), mounted = useRef(true);
+    const [cards, setCards] = useState({}), [tagline, setTagline] = useState(''), [touched, setTouched] = useState(false), [copied, setCopied] = useState('');
+    const running = useRef(false), mounted = useRef(true), profiles = useRef([]);
 
     async function work(label, action) {
       if (running.current) return;
@@ -38,6 +52,7 @@ function createDropsApp(React, bridge) {
     }
     async function refresh() {
       const data = await bridge.api('/bootstrap');
+      profiles.current = data.profiles || [];
       if (mounted.current) setBoot(data);
     }
     function previewLink(link) {
@@ -47,7 +62,7 @@ function createDropsApp(React, bridge) {
       mounted.current = true;
       const first = incoming.current;
       // A shared link opens straight into its preview (never an installation).
-      work('Loading…', async () => { await refresh(); if (first) await previewLink(first); });
+      work(first ? 'Checking this bot…' : 'Loading…', async () => { await refresh(); if (first) await previewLink(first); });
       const onLink = () => {
         const link = dropLinkFromLocation(window.location);
         if (!link || link === incoming.current) return;
@@ -57,25 +72,49 @@ function createDropsApp(React, bridge) {
       window.addEventListener('hashchange', onLink);
       return () => { mounted.current = false; window.removeEventListener('hashchange', onLink); };
     }, []);
+    // Cards are drawn by the plugin itself from checked facts; a shared repository's own images are never shown.
+    const ready = !!boot;
+    useEffect(() => {
+      if (!ready) return;
+      bridge.api('/example/card').then(r => mounted.current && setCards(c => ({...c, example: r.image}))).catch(() => {});
+    }, [ready]);
+    const reviewId = review ? review.id : '';
+    useEffect(() => {
+      if (!reviewId) return;
+      bridge.api('/reviews/'+reviewId+'/card').then(r => mounted.current && setCards(c => ({...c, review: {id: reviewId, src: r.image}}))).catch(() => {});
+    }, [reviewId]);
+    const typed = touched ? tagline : null;
+    useEffect(() => {
+      if (tab !== 'share' || !profile) return;
+      let live = true;
+      const timer = setTimeout(() => {
+        bridge.api('/card', {name: profile, credit, ...(typed === null ? {} : {description: typed})}).then(r => {
+          if (!live || !mounted.current) return;
+          setCards(c => ({...c, share: {profile, src: r.image}}));
+          if (typed === null) setTagline(r.description || '');
+        }).catch(() => {});
+      }, typed === null ? 0 : 350);
+      return () => { live = false; clearTimeout(timer); };
+    }, [tab, profile, credit, typed]);
+
     function select(info) {
       if (!mounted.current) return;
-      setReview(info); setName(info.installed_profile || info.name); setAccepted(false); setInstructions(null); setTab('adopt');
+      setReview(info); setName(info.installed_profile || freeBotName(info.name, profiles.current)); setAccepted(false); setInstructions(null); setTab('adopt');
     }
     function preview(example) {
-      work(example ? 'Preparing the example…' : 'Checking this bot…', async () => {
+      work(example ? 'Opening the example…' : 'Checking this bot…', async () => {
         const info = await bridge.api(example ? '/example' : '/preview', example ? {} : {url: url.trim()});
         select(info); await refresh();
       });
     }
     function install() {
       if (!accepted || !review) return;
-      work('Creating your bot…', async () => {
+      work('Adopting your bot…', async () => {
         const consent = await bridge.api('/confirm', {action: 'install', id: review.id, name});
         const result = await bridge.api('/install', {id: review.id, name, confirmation: consent.confirmation});
         select(result); await refresh();
       });
     }
-    const SLUG = /^[a-z0-9][a-z0-9-]{1,62}$/;
     function loadGithub() {
       if (gh && !gh.failed) return;
       setGh({loading: true});
@@ -85,26 +124,26 @@ function createDropsApp(React, bridge) {
       }).catch(() => mounted.current && setGh({available: false, failed: true, reason: 'GitHub could not be reached.'}));
     }
     function chooseProfile(next) {
-      setProfile(next); setAccepted(false);
+      setProfile(next); setAccepted(false); setTagline(''); setTouched(false); setCards(c => ({...c, share: null}));
       setRepoName(next === 'default' ? 'my-hermes-bot' : SLUG.test(next) ? next : '');
     }
     async function makePackage() {
       // One package per chosen bot; a failed upload can be retried without packaging again.
-      if (exported && exported.profile === profile && exported.credit === credit) return exported;
+      if (exported && exported.profile === profile && exported.credit === credit && exported.tagline === tagline) return exported;
       const consent = await bridge.api('/confirm', {action: 'publish', name: profile});
-      const result = {...await bridge.api('/publish', {name: profile, credit, confirmation: consent.confirmation}), profile, credit};
+      const result = {...await bridge.api('/publish', {name: profile, credit, description: tagline.trim(), confirmation: consent.confirmation}), profile, credit, tagline};
       if (mounted.current) setExported(result);
       return result;
     }
     function publish() {  // manual path, when GitHub is not available
       if (!accepted || !profile) return;
-      work('Preparing your share package…', async () => {await makePackage(); if (mounted.current) setAccepted(false);});
+      work('Preparing your files…', async () => {await makePackage(); if (mounted.current) setAccepted(false);});
     }
     function shareNow() {
       if (!accepted || !profile) return;
       const update = target === 'update', [destOwner, destRepo] = update ? existing.split('/') : [owner, repoName];
       if (!destOwner || !SLUG.test(destRepo || '')) return;
-      work(update ? 'Updating your drop on GitHub…' : 'Publishing on GitHub…', async () => {
+      work(update ? 'Updating your drop…' : 'Publishing your bot…', async () => {
         const pkg = await makePackage();
         const mode = update ? 'update' : 'create';
         const consent = await bridge.api('/confirm', {action: 'github', id: pkg.id, owner: destOwner, name: destRepo, mode});
@@ -117,124 +156,167 @@ function createDropsApp(React, bridge) {
       return [
         {label: 'Post on X', href: 'https://x.com/intent/post?text='+e(text)+'&url='+e(link)},
         {label: 'LinkedIn', href: 'https://www.linkedin.com/sharing/share-offsite/?url='+e(link)},
-        {label: 'Reddit', href: 'https://www.reddit.com/submit?url='+e(link)+'&title='+e(pretty(result.title)+' · a Hermes bot')},
+        {label: 'Reddit', href: 'https://www.reddit.com/submit?url='+e(link)+'&title='+e(titled(result.title)+' · a Hermes bot')},
         {label: 'Bluesky', href: 'https://bsky.app/intent/compose?text='+e(result.post_text)}];
     }
-    function copyText(text) {
+    function copyText(text, key) {
       try { navigator.clipboard.writeText(text).catch(() => {}); } catch { /* the text is also shown for manual copy */ }
+      setCopied(key); setTimeout(() => mounted.current && setCopied(c => c === key ? '' : c), 1600);
     }
     const switchTab = next => () => {setTab(next); setAccepted(false); setError(''); if (next === 'share') loadGithub();};
-    const checkbox = (text) => h('label', {className: 'ad-check'}, h('input', {type: 'checkbox', checked: accepted, onChange: e => setAccepted(e.target.checked), disabled: !!busy}), h('span', null, text));
-    const more = (label, ...children) => h('details', {className: 'ad-more'}, h('summary', null, label), ...children);
-    const notes = (items, label) => items?.length ? h('details', {className: 'ad-warnings'}, h('summary', null, label(items.length)),
-      items.map((w, i) => h('div', {key: i, className: 'ad-warning'}, h('b', null, w.title), h('p', null, w.detail), h('small', null, w.action)))) : null;
-    const recent = boot?.reviews?.length ? h('aside', {className: 'ad-recent'}, h('h3', null, 'Recent'), boot.reviews.map(i => button(pretty(i.name)+(i.status === 'installed' ? ' ✓' : ''), () => work('Opening…', async () => select(await bridge.api('/reviews/'+i.id))), !!busy, 'ad-quiet'))) : null;
+    const checkbox = text => h('label', {className: 'bd-check'}, h('input', {type: 'checkbox', checked: accepted, onChange: e => setAccepted(e.target.checked), disabled: !!busy}), h('span', null, text));
+    const more = (label, ...children) => h('details', null, h('summary', null, label), ...children);
+    const notes = (items, label) => items?.length ? h('details', {className: 'bd-notes'}, h('summary', null, label(items.length)),
+      items.map((w, i) => h('div', {key: i, className: 'bd-note'}, h('b', null, w.title), h('p', null, w.detail), h('small', null, w.action)))) : null;
+    const cardView = (src, alt, wait, caption) => h('figure', {className: 'bd-card'},
+      src ? h('img', {src, alt, width: 1200, height: 630}) : h('div', {className: 'bd-card-wait'}, wait),
+      caption && h('figcaption', null, caption));
+
     const installed = review?.status === 'installed';
     const validName = /^[a-z][a-z0-9-]{1,47}$/.test(name) && !['default','hermes','test','tmp','root','sudo'].includes(name);
     const taken = boot?.profiles?.includes(name) && !installed;
-    const nameHint = taken ? 'That name is taken. Pick another.' : name && !validName ? 'Use lowercase letters, numbers and hyphens.' : '';
+    const nameHint = taken ? 'You already have a bot with that name.' : name && !validName ? 'Use lowercase letters, numbers and hyphens.' : '';
 
-    const discover = h('section', {className: 'ad-panel'},
-      h('h2', null, 'Got a bot link?'),
-      h('form', {className: 'ad-inline', onSubmit: e => {e.preventDefault(); if (url.trim()) preview(false);}},
-        h('input', {type: 'text', 'aria-label': 'Bot link', placeholder: 'Paste a GitHub or GitLab link', value: url, maxLength: 300, onChange: e => setUrl(e.target.value), disabled: !!busy, autoComplete: 'off'}),
-        button('Preview', () => preview(false), !!busy || !url.trim() || !boot)),
-      h('p', {className: 'ad-muted'}, 'No link yet? ', h('button', {type: 'button', className: 'ad-link', onClick: () => preview(true), disabled: !!busy || !boot}, 'Try an example bot')),
-      more('How does this work?', h('p', null, 'Preview downloads and checks the bot. Nothing runs or installs until you adopt it, and adopting always creates a new bot.'), boot && h('p', {className: 'ad-muted'}, boot.limits)));
+    // Start: paste a link, or pick up the example card.
+    const seen = new Set();
+    const recentItems = (boot?.reviews || []).filter(i => {
+      const key = i.installed_profile || i.name;
+      if (seen.has(key)) return false;
+      seen.add(key); return true;
+    }).slice(0, 5);
+    const start = h('div', {className: 'bd-start'},
+      h('div', null,
+        h('h1', {className: 'bd-h1'}, 'Find a bot', h('span', null, 'Make it yours')),
+        h('p', {className: 'bd-lead'}, 'Paste a link someone shared. You see what is inside before anything is added to your Hermes.'),
+        h('form', {className: 'bd-row', onSubmit: e => {e.preventDefault(); if (url.trim()) preview(false);}},
+          h('input', {type: 'text', 'aria-label': 'Bot link', placeholder: 'Paste a bot link', value: url, maxLength: 300, onChange: e => setUrl(e.target.value), disabled: !!busy, autoComplete: 'off'}),
+          button('Preview', () => preview(false), !!busy || !url.trim() || !boot)),
+        recentItems.length > 0 && h('div', {className: 'bd-recent'}, h('span', null, 'Recent'),
+          recentItems.map(i => h('button', {key: i.id, type: 'button', className: 'bd-chip'+(i.status === 'installed' ? ' on' : ''), disabled: !!busy,
+            onClick: () => work('Opening…', async () => select(await bridge.api('/reviews/'+i.id)))}, pretty(i.installed_profile || i.name)+(i.status === 'installed' ? ' ✓' : ''))))),
+      h('button', {type: 'button', className: 'bd-example', onClick: () => preview(true), disabled: !!busy || !boot, 'aria-label': 'Try the example bot Carousel Writer'},
+        cardView(cards.example, '', boot ? 'Loading the example…' : '', h('span', null, 'No link yet? ', h('b', null, 'Try this example bot')))));
 
-    const card = review && h('section', {className: 'ad-panel'},
-      h('div', {className: 'ad-cardtop'}, h('span', {className: 'ad-meta'}, 'by '+review.author+' · v'+review.version), button('← Back', () => {setReview(null); setAccepted(false);}, !!busy, 'ad-quiet')),
-      h('h2', null, pretty(installed ? name : review.name)), h('p', {className: 'ad-description'}, review.description),
-      installed ? h('section', {className: 'ad-success'},
-        h('h3', null, 'Done, this bot is yours'),
-        h('p', null, 'Add your own model key in Hermes, then say hi.'),
-        bridge.finishBot ? button('Open Bot Chat →', () => work('Opening Bot Chat…', () => bridge.finishBot(review)), !!busy) : h('p', {className: 'ad-muted'}, 'Open Hermes Desktop to chat with it.'),
-        more('What happened?', h('p', null, 'A new Hermes profile was created. No message was sent and no model has run. Telegram or Discord accounts are separate connections.')))
-      : null,
-      h('div', {className: 'ad-chips'},
-        h('span', {className: 'ad-label'}, 'Needs'),
-        review.env_requires.length ? review.env_requires.map(e => h('span', {key: e.name, className: 'ad-chip', title: e.description}, e.name+(e.required ? '' : ' (optional)'))) : h('span', {className: 'ad-chip'}, 'Your own model access')),
-      review.skills.length ? h('div', {className: 'ad-chips'}, h('span', {className: 'ad-label'}, 'Skills'), review.skills.map(s => h('span', {key: s.name, className: 'ad-chip', title: s.description || ''}, s.name))) : null,
-      notes(review.warnings, n => n === 1 ? '1 thing was left out for safety' : n+' things were left out for safety'),
-      !installed && h('section', {className: 'ad-adopt'},
-        h('label', {className: 'ad-field'}, h('span', null, 'Name your bot'), h('input', {value: name, onChange: e => {setName(e.target.value); setAccepted(false);}, maxLength: 48, disabled: !!busy, autoComplete: 'off'})),
-        nameHint && h('p', {className: 'ad-hint'}, nameHint),
-        checkbox('I trust where this bot comes from.'),
-        button('Adopt bot →', install, !!busy || !accepted || !validName || taken)),
-      more('More details',
-        h('p', null, review.trust_notice+' Adopting creates a new bot; existing bots are never changed.'),
-        review.cron.map((j, i) => h('p', {key: i}, 'Paused task: '+j.name+' · '+j.schedule)),
-        h('p', null, 'Hermes: '+review.hermes_requires),
-        h('p', null, 'Source: '+review.source), h('code', null, review.commit),
-        h('p', {className: 'ad-muted'}, 'This exact checked version is what gets adopted. Later changes by the creator are not pulled in.'),
-        button('Read personality & skills', () => work('Loading…', async () => {const data = await bridge.api('/reviews/'+review.id+'/instructions'); if (mounted.current) setInstructions(data.files);}), !!busy, 'ad-secondary'),
-        instructions && instructions.map(f => h('details', {key: f.path}, h('summary', null, f.path), h('pre', null, f.text)))));
+    // Preview of one bot: its card, what it brings, and the one decision.
+    const author = review && review.author && review.author !== 'Not specified' ? review.author : '';
+    const reviewCard = review && cards.review && cards.review.id === review.id ? cards.review.src : '';
+    const adoptPanel = review && (installed
+      ? h('section', {className: 'bd-done'},
+          h('h3', null, 'Done, this bot is yours'),
+          h('p', null, 'Add your own model key in Hermes, then say hi.'),
+          bridge.finishBot ? button('Open Bot Chat', () => work('Opening Bot Chat…', () => bridge.finishBot(review)), !!busy, 'wide')
+            : h('p', {className: 'bd-muted'}, 'Switch to “'+name+'” in the Hermes profile menu to chat with it.'),
+          more('What happened?', h('p', null, 'A new Hermes profile was created. No message was sent and no model has run. Telegram or Discord accounts are separate connections.')))
+      : h('section', {className: 'bd-panel'},
+          h('h3', null, 'Make it yours'),
+          h('label', {className: 'bd-field'}, h('span', null, 'Name your bot'), h('input', {value: name, onChange: e => {setName(e.target.value.toLowerCase()); setAccepted(false);}, maxLength: 48, disabled: !!busy, autoComplete: 'off'})),
+          nameHint && h('p', {className: 'bd-hint'}, nameHint),
+          checkbox('I trust where this bot comes from'),
+          button('Adopt this bot', install, !!busy || !accepted || !validName || taken, 'wide'),
+          h('p', {className: 'bd-muted', style: {margin: '12px 0 0'}}, 'Creates a new bot. Your other bots, keys and chats stay as they are.')));
+    const card = review && h('div', null,
+      button('← All bots', () => {setReview(null); setAccepted(false);}, !!busy, 'text'),
+      h('div', {className: 'bd-two', style: {marginTop: 10}},
+        h('div', null,
+          cardView(reviewCard, 'Card of the bot '+titled(review.name), 'Drawing the card…'),
+          h('dl', {className: 'bd-facts'},
+            author && h('dt', null, 'Shared by'), author && h('dd', null, h('span', {className: 'bd-chip'}, author)),
+            h('dt', null, 'Needs'), h('dd', null, review.env_requires.length ? review.env_requires.map(e => h('span', {key: e.name, className: 'bd-chip', title: e.description}, e.name+(e.required ? '' : ' (optional)'))) : h('span', {className: 'bd-chip'}, 'Your own model access')),
+            review.skills.length > 0 && h('dt', null, 'Skills'), review.skills.length > 0 && h('dd', null, review.skills.map(s => h('span', {key: s.name, className: 'bd-chip', title: s.description || ''}, s.name)))),
+          notes(review.warnings, n => n === 1 ? '1 thing was left out for safety' : n+' things were left out for safety'),
+          more('Read its personality and skills',
+            instructions ? instructions.map(f => h('details', {key: f.path}, h('summary', null, f.path), h('pre', null, f.text)))
+              : button('Show the files', () => work('Loading…', async () => {const data = await bridge.api('/reviews/'+review.id+'/instructions'); if (mounted.current) setInstructions(data.files);}), !!busy, 'ghost')),
+          more('More details',
+            h('p', null, review.trust_notice),
+            review.cron.map((j, i) => h('p', {key: i}, 'Paused task: '+j.name+' · '+j.schedule)),
+            h('p', null, 'Version '+review.version+' · Hermes '+review.hermes_requires),
+            h('p', null, 'Source: '+review.source), h('code', null, review.commit),
+            h('p', null, 'This exact checked version is what gets adopted. Later changes by the creator are not pulled in.'))),
+        h('div', {className: 'bd-side'}, adoptPanel)));
 
+    // Share: the card builds itself while the form is filled in.
     const drops = gh?.drops || [];
     const repoValid = SLUG.test(repoName);
     const resetShare = () => {setExported(null); setPublished(null); setAccepted(false);};
     const manualSteps = h('ol', null, h('li', null, 'Save the package and unzip it.'), h('li', null, 'Upload all files to a new public GitHub repository.'), h('li', null, 'Post the card with the repository link.'));
-    const saveButtons = exported && h('div', {className: 'ad-actions'}, button('Save card', () => work('Saving…', () => bridge.download(exported, 'card')), !!busy, 'ad-secondary'), button('Save package', () => work('Saving…', () => bridge.download(exported, 'zip')), !!busy, 'ad-secondary'));
-    const pickBot = h('label', {className: 'ad-field'}, h('span', null, 'Which bot?'), h('select', {value: profile, onChange: e => chooseProfile(e.target.value), disabled: !!busy}, h('option', {value: ''}, 'Choose a bot…'), ...(boot?.profiles || []).map(p => h('option', {key: p, value: p}, p)), h('option', {value: 'default'}, 'default (your main profile)')));
-    const contents = h('div', {className: 'ad-lists'},
+    const saveButtons = exported && h('div', {className: 'bd-actions'}, button('Save card', () => work('Saving…', () => bridge.download(exported, 'card')), !!busy, 'ghost'), button('Save package', () => work('Saving…', () => bridge.download(exported, 'zip')), !!busy, 'ghost'));
+    const pickBot = h('label', {className: 'bd-field'}, h('span', null, 'Which bot?'), h('select', {value: profile, onChange: e => chooseProfile(e.target.value), disabled: !!busy}, h('option', {value: ''}, 'Choose a bot…'), ...(boot?.profiles || []).map(p => h('option', {key: p, value: p}, p)), h('option', {value: 'default'}, 'default (your main profile)')));
+    const say = profile && h('label', {className: 'bd-field'}, h('span', null, 'What does it do? ', h('small', null, (TAGLINE - tagline.length)+' left')),
+      h('input', {value: tagline, maxLength: TAGLINE, placeholder: 'One line for the card', onChange: e => {setTagline(e.target.value); setTouched(true); setAccepted(false);}, disabled: !!busy, autoComplete: 'off'}));
+    const contents = h('div', {className: 'bd-lists'},
       h('div', null, h('b', null, 'Shared'), h('ul', null, h('li', null, 'Personality'), h('li', null, 'Your own skills'))),
-      h('div', null, h('b', null, 'Never shared'), h('ul', null, h('li', null, 'Keys & logins'), h('li', null, 'Memory & chats'), h('li', null, 'Plugins & connections'))));
-    const destination = gh?.available && h('div', {className: 'ad-dest'},
-      drops.length > 0 && h('div', {className: 'ad-segment', role: 'radiogroup', 'aria-label': 'Where to publish'},
-        button('New drop', () => {setTarget('new'); setAccepted(false);}, !!busy, target === 'new' ? 'ad-active' : 'ad-quiet'),
-        button('Update a drop', () => {setTarget('update'); setAccepted(false); if (!existing) setExisting(drops[0].owner+'/'+drops[0].repo);}, !!busy, target === 'update' ? 'ad-active' : 'ad-quiet')),
+      h('div', null, h('b', null, 'Never shared'), h('ul', null, h('li', null, 'Keys and logins'), h('li', null, 'Memory and chats'), h('li', null, 'Plugins and connections'))));
+    const seg = (label, value) => h('button', {type: 'button', role: 'radio', 'aria-checked': target === value, disabled: !!busy, onClick: () => {setTarget(value); setAccepted(false); if (value === 'update' && !existing) setExisting(drops[0].owner+'/'+drops[0].repo);}}, label);
+    const destination = gh?.available && h('div', null,
+      drops.length > 0 && h('div', {className: 'bd-seg', role: 'radiogroup', 'aria-label': 'Where to publish'}, seg('New drop', 'new'), seg('Update a drop', 'update')),
       target === 'update' && drops.length > 0
-        ? h('label', {className: 'ad-field'}, h('span', null, 'Drop to update'), h('select', {value: existing, onChange: e => {setExisting(e.target.value); setAccepted(false);}, disabled: !!busy}, drops.map(d => h('option', {key: d.owner+'/'+d.repo, value: d.owner+'/'+d.repo}, d.owner+'/'+d.repo))))
-        : h('div', {className: 'ad-inline-fields'},
-            gh.owners.length > 1 && h('label', {className: 'ad-field'}, h('span', null, 'GitHub account'), h('select', {value: owner, onChange: e => {setOwner(e.target.value); setAccepted(false);}, disabled: !!busy}, gh.owners.map(o => h('option', {key: o, value: o}, o)))),
-            h('label', {className: 'ad-field'}, h('span', null, 'Link name'), h('input', {value: repoName, onChange: e => {setRepoName(e.target.value.toLowerCase()); setAccepted(false);}, maxLength: 63, disabled: !!busy, autoComplete: 'off'}))),
-      target !== 'update' && repoName && !repoValid && h('p', {className: 'ad-hint'}, 'Use lowercase letters, numbers and hyphens.'),
-      target !== 'update' && repoValid && h('p', {className: 'ad-meta'}, 'Your link: '+owner.toLowerCase()+'.github.io/'+repoName));
-    const creditToggle = h('label', {className: 'ad-check ad-credit'}, h('input', {type: 'checkbox', checked: credit, onChange: e => setCredit(e.target.checked), disabled: !!busy}), h('span', null, 'Show “Made with Bot Drops” on the page and card'));
-    const ready = profile && (target === 'update' ? !!existing : repoValid && owner);
-    const share = published ? h('section', {className: 'ad-panel ad-share ad-success'},
-      h('h2', null, published.mode === 'update' ? (published.changed ? 'Your drop is updated' : 'Already up to date') : 'Your bot is live'),
-      h('p', null, 'Post it anywhere. The card shows up on its own when you share the link.'),
-      h('div', {className: 'ad-sharegrid'}, shareTargets(published).map(t => h('a', {key: t.label, className: 'ad-button ad-secondary', href: t.href, target: '_blank', rel: 'noopener noreferrer'}, t.label))),
-      h('div', {className: 'ad-actions'}, button('Copy link', () => copyText(published.share_url || published.pages_url || published.repo_url), !!busy, 'ad-quiet'), button('Copy post text', () => copyText(published.post_text), !!busy, 'ad-quiet')),
+        ? h('label', {className: 'bd-field'}, h('span', null, 'Drop to update'), h('select', {value: existing, onChange: e => {setExisting(e.target.value); setAccepted(false);}, disabled: !!busy}, drops.map(d => h('option', {key: d.owner+'/'+d.repo, value: d.owner+'/'+d.repo}, d.owner+'/'+d.repo))))
+        : h('div', {className: 'bd-pair'},
+            gh.owners.length > 1 && h('label', {className: 'bd-field'}, h('span', null, 'GitHub account'), h('select', {value: owner, onChange: e => {setOwner(e.target.value); setAccepted(false);}, disabled: !!busy}, gh.owners.map(o => h('option', {key: o, value: o}, o)))),
+            h('label', {className: 'bd-field'}, h('span', null, 'Link name'), h('input', {value: repoName, onChange: e => {setRepoName(e.target.value.toLowerCase()); setAccepted(false);}, maxLength: 63, disabled: !!busy, autoComplete: 'off'}))),
+      target !== 'update' && repoName && !repoValid && h('p', {className: 'bd-hint', style: {marginTop: 0}}, 'Use lowercase letters, numbers and hyphens.'),
+      target !== 'update' && repoValid && owner && h('p', {className: 'bd-url'}, 'Your link: '+owner.toLowerCase()+'.github.io/'+repoName));
+    const creditToggle = h('label', {className: 'bd-check'}, h('input', {type: 'checkbox', checked: credit, onChange: e => setCredit(e.target.checked), disabled: !!busy}), h('span', null, 'Show “by BrainArts” on the card and page'));
+    const canShare = profile && (target === 'update' ? !!existing : repoValid && owner);
+    const shareCard = cards.share && cards.share.profile === profile ? cards.share.src : '';
+    const livePreview = h('div', {className: 'bd-side'}, cardView(shareCard, 'Card of your bot', profile ? 'Drawing your card…' : 'Choose a bot to see its card', 'This card shows up wherever you post the link.'), contents);
+    const link = published && (published.share_url || published.pages_url || published.repo_url);
+    const share = published ? h('section', {className: 'bd-live'},
+      h('h2', {className: 'bd-h2'}, published.mode === 'update' ? (published.changed ? 'Your drop is updated' : 'Already up to date') : 'Your bot is live'),
+      h('p', {className: 'bd-lead', style: {margin: '0 auto'}}, 'Post the link anywhere. The card comes along on its own.'),
+      cardView(shareCard, 'Card of your bot', ''),
+      h('div', {className: 'bd-copy'}, h('input', {readOnly: true, value: link, 'aria-label': 'Your link', onFocus: e => e.target.select()}), button(copied === 'link' ? 'Copied' : 'Copy link', () => copyText(link, 'link'), false)),
+      h('div', {className: 'bd-sharegrid'}, shareTargets(published).map(t => h('a', {key: t.label, className: 'bd-btn ghost', href: t.href, target: '_blank', rel: 'noopener noreferrer'}, t.label))),
       more('Instagram', h('p', null, 'Instagram has no share link. Save the story image, post it as a story and add a link sticker with your link.'),
-        button('Save story image', () => work('Saving…', () => bridge.download(exported, 'story')), !!busy, 'ad-secondary')),
-      more('Post text and files', h('textarea', {className: 'ad-post', readOnly: true, rows: 3, value: published.post_text, 'aria-label': 'Post text', onFocus: e => e.target.select()}),
+        button('Save story image', () => work('Saving…', () => bridge.download(exported, 'story')), !!busy, 'ghost')),
+      more('Post text and files', h('textarea', {className: 'bd-post', readOnly: true, rows: 3, value: published.post_text, 'aria-label': 'Post text', onFocus: e => e.target.select()}),
+        h('div', {className: 'bd-actions'}, button(copied === 'post' ? 'Copied' : 'Copy post text', () => copyText(published.post_text, 'post'), false, 'ghost'), button('Save card', () => work('Saving…', () => bridge.download(exported, 'card')), !!busy, 'ghost')),
         h('p', null, 'Page: '+(published.pages_url || '—')), h('p', null, 'Repository: '+published.repo_url),
-        published.pages_url ? h('p', {className: 'ad-muted'}, 'Changes to the page can take a minute to appear.') : h('p', {className: 'ad-muted'}, 'GitHub Pages could not be turned on. The repository link works as is.'),
-        button('Save card', () => work('Saving…', () => bridge.download(exported, 'card')), !!busy, 'ad-secondary')),
-      button('← Share another bot', resetShare, !!busy, 'ad-quiet'))
-    : gh?.available ? h('section', {className: 'ad-panel ad-share'},
-      h('h2', null, 'Share your bot'),
-      pickBot, contents, destination, creditToggle,
-      checkbox(target === 'update' ? 'Replace the public drop with this version.' : 'Publish this bot publicly on GitHub.'),
-      button(target === 'update' ? 'Update drop →' : 'Share bot →', shareNow, !!busy || !accepted || !ready),
-      exported && notes(exported.warnings, n => n === 1 ? '1 thing was left out' : n+' things were left out'),
-      more('Prefer to do it yourself?', manualSteps, exported ? saveButtons : h('p', {className: 'ad-muted'}, 'Share once to get the package files, or publish without GitHub below.')))
-    : !exported ? h('section', {className: 'ad-panel ad-share'},
-      h('h2', null, 'Share your bot'),
-      pickBot, contents, creditToggle,
-      gh?.loading ? h('p', {className: 'ad-meta'}, 'Checking GitHub…') : h('p', {className: 'ad-muted'}, (gh?.reason || 'GitHub is not available.')+' You can still prepare the files and upload them yourself.'),
-      checkbox('I looked at what is shared.'),
-      button('Prepare files →', publish, !!busy || !profile || !accepted || !boot || gh?.loading))
-    : h('section', {className: 'ad-panel ad-share'},
-      h('h2', null, 'Upload it yourself'),
-      manualSteps, saveButtons,
-      more('What is in the package', h('code', null, exported.directory), h('ul', null, exported.files.map(f => h('li', {key: f}, f))),
-        h('p', {className: 'ad-muted'}, 'Only these files. A key scan cannot catch every secret, so take a quick look first.')),
-      notes(exported.warnings, n => n === 1 ? '1 thing was left out' : n+' things were left out'),
-      button('← Back', resetShare, !!busy, 'ad-quiet'));
+        published.pages_url ? h('p', null, 'A new page can take a minute to appear.') : h('p', null, 'GitHub Pages could not be turned on. The repository link works as is.')),
+      button('Share another bot', resetShare, !!busy, 'text'))
+    : exported && !gh?.available ? h('section', {className: 'bd-two share'},
+        h('div', {className: 'bd-panel'},
+          h('h2', {className: 'bd-h2'}, 'Upload it yourself'),
+          manualSteps, saveButtons,
+          more('What is in the package', h('code', null, exported.directory), h('ul', null, exported.files.map(f => h('li', {key: f}, f))),
+            h('p', null, 'Only these files. A key scan cannot catch every secret, so take a quick look first.')),
+          notes(exported.warnings, n => n === 1 ? '1 thing was left out' : n+' things were left out'),
+          button('← Back', resetShare, !!busy, 'text')),
+        livePreview)
+    : h('section', {className: 'bd-two share'},
+        h('div', null,
+          h('h2', {className: 'bd-h2'}, 'Share your bot'),
+          h('p', {className: 'bd-lead', style: {marginBottom: 22}}, 'One link and one card. Anyone with Hermes can adopt their own copy.'),
+          pickBot, say, h('div', {className: 'bd-form-lists'}, contents),
+          !gh || gh.loading ? h('p', {className: 'bd-status'}, h('span', {className: 'bd-spin'}), 'Checking GitHub…')
+          : gh.available ? h('div', null,
+              destination, creditToggle,
+              checkbox(target === 'update' ? 'Replace the public drop with this version' : 'Publish this bot publicly on GitHub'),
+              button(target === 'update' ? 'Update drop' : 'Share bot', shareNow, !!busy || !accepted || !canShare),
+              exported && notes(exported.warnings, n => n === 1 ? '1 thing was left out' : n+' things were left out'),
+              more('Prefer to do it yourself?', manualSteps, exported ? saveButtons : h('p', null, 'Share once to get the package files.')))
+          : h('div', null,
+              h('p', {className: 'bd-muted'}, (gh.reason || 'GitHub is not available.')+' You can still prepare the files and upload them yourself.'),
+              creditToggle, checkbox('I looked at what is shared'),
+              button('Prepare files', publish, !!busy || !profile || !accepted || !boot))),
+        livePreview);
 
-    return h('main', {className: 'bot-drops'}, h('style', null, DROPS_CSS),
-      h('header', {className: 'ad-header'}, h('span', {className: 'ad-brand'}, 'BRAINARTS', h('b', null, ' / BOT DROPS'))),
-      h('section', {className: 'ad-hero'}, h('h1', null, 'Find a bot', h('br'), h('em', null, 'Make it yours'))),
-      h('nav', {'aria-label': 'Bot Drops', className: 'ad-tabs'}, button('Adopt', switchTab('adopt'), !!busy, tab === 'adopt' ? 'ad-active' : 'ad-quiet'), button('Share', switchTab('share'), !!busy, tab === 'share' ? 'ad-active' : 'ad-quiet')),
-      busy && h('div', {role: 'status', 'aria-live': 'polite', className: 'ad-status'}, h('span', {className: 'ad-spinner'}), busy),
-      error && h('div', {role: 'alert', className: 'ad-error'}, h('strong', null, 'That did not work'), h('p', null, error), button('Try again', () => work('Reloading…', refresh), !!busy, 'ad-quiet')),
-      !boot && !busy && h('p', {className: 'ad-note'}, 'Bot Drops is not enabled for this Hermes profile yet.'),
-      tab === 'adopt' ? h('div', {className: 'ad-layout'}, h('div', null, review ? card : discover), recent) : share,
-      h('footer', {className: 'ad-footer'}, h('span', null, 'Nothing is posted automatically.'), h('span', null, boot ? 'Hermes profile: '+boot.home_name : 'Waiting for Hermes'))
-    );
+    return h('main', {className: 'bot-drops'}, h('style', null, DROPS_CSS), h('div', {className: 'bd-wrap'},
+      h('header', {className: 'bd-top'},
+        h('span', {className: 'bd-mark'}, 'BOT DROPS', h('b', null, 'FOR HERMES')),
+        h('div', {className: 'bd-top-right'},
+          h('div', {role: 'status', 'aria-live': 'polite', className: 'bd-status'}, busy && h('span', {className: 'bd-spin'}), busy),
+          h('nav', {'aria-label': 'Bot Drops', className: 'bd-tabs', role: 'tablist'},
+            h('button', {type: 'button', role: 'tab', 'aria-selected': tab === 'adopt', onClick: switchTab('adopt'), disabled: !!busy}, 'Adopt'),
+            h('button', {type: 'button', role: 'tab', 'aria-selected': tab === 'share', onClick: switchTab('share'), disabled: !!busy}, 'Share')))),
+      error && h('div', {role: 'alert', className: 'bd-error'}, h('strong', null, 'That did not work'), h('p', null, error), button('Try again', () => work('Reloading…', refresh), !!busy, 'ghost')),
+      !boot && !busy && !error && h('p', {className: 'bd-muted'}, 'Bot Drops is not enabled for this Hermes profile yet.'),
+      tab === 'adopt' ? (review ? card : start) : share,
+      h('footer', {className: 'bd-foot'},
+        h('span', null, 'Nothing is posted or installed without your click'),
+        h('span', null, boot ? 'Profile: '+boot.home_name+' · ' : '', 'by ', h('a', {href: 'https://x.com/chrisbrainarts', target: '_blank', rel: 'noopener noreferrer'}, 'BrainArts')))
+    ));
   };
 }
 

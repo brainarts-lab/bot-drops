@@ -87,6 +87,83 @@ class DropsV2Tests(unittest.TestCase):
                      'token: ghp_'+'Ab1Cd2Ef3Gh4Ij5Kl6Mn7Op8','AKIA'+'ABCDEFGH12345678','password: "correct-horse-battery-9"']:
             with self.subTest(text=text): self.assertTrue(contains_secret(text))
 
+    def author_profile(self):
+        profile=self.drops.profiles/'author';(profile/'skills/mine').mkdir(parents=True)
+        (profile/'SOUL.md').write_text('Mine.')
+        (profile/'skills/mine/SKILL.md').write_text('---\nname: mine\ndescription: Mine.\n---\nDo my thing.')
+        return profile
+
+    def test_hermes_caches_and_category_notes_never_block_or_join_a_share(self):
+        profile=self.author_profile()
+        (profile/'skills/.hub/index-cache').mkdir(parents=True)
+        (profile/'skills/.hub/index-cache/hermes-index.json').write_bytes(b'x'*(2*1024*1024))  # larger than any shareable file
+        (profile/'skills/research').mkdir();(profile/'skills/research/DESCRIPTION.md').write_text('A category Hermes created.')
+        self.assertEqual([s['name'] for s in self.drops.share_preview('author')['skills']],['mine'])
+        files=set(self.drops.publish('author',confirmed=True)['files'])
+        self.assertIn('skills/mine/SKILL.md',files)
+        self.assertFalse(any('.hub' in f or 'DESCRIPTION.md' in f for f in files))
+        (profile/'skills/mine/big.md').write_bytes(b'y'*(1024*1024+1))
+        with self.assertRaises(DropError) as caught:self.drops.publish('author',confirmed=True)
+        self.assertIn('too large',str(caught.exception))
+
+    def test_description_written_while_sharing_reaches_card_page_and_recipient(self):
+        self.author_profile()
+        self.assertEqual(self.drops.share_preview('author')['description'],'A shared Hermes bot')
+        self.assertEqual(self.drops.share_preview('author','  Plans   my week ')['description'],'Plans my week')
+        with self.assertRaises(DropError):self.drops.share_preview('author','x'*141)
+        with self.assertRaises(DropError):self.drops.publish('author',confirmed=True,description='x'*141)
+        package=self.drops.publish('author',confirmed=True,description='Plans my week <b>')
+        directory=Path(package['directory'])
+        self.assertEqual(read_data(directory/'distribution.yaml')['description'],'Plans my week <b>')
+        page=(directory/'index.html').read_text()
+        self.assertIn('Plans my week &lt;b&gt;',page);self.assertNotIn('week <b>',page)
+        received=self.drops._record(directory,'b'*40,'https://github.com/example/author')
+        self.assertEqual(received['description'],'Plans my week <b>')
+        self.assertEqual(received['warnings'],[])  # the neutral settings Bot Drops writes are not a warning
+
+    def test_foreign_settings_still_warn(self):
+        write_json(self.source/'config.yaml',{'plugins':{'enabled':['evil']},'mcp_servers':{},'terminal':{'shell':'x'}})
+        details=[w['detail'] for w in self.record()['warnings']]
+        self.assertEqual(len(details),2);self.assertTrue(any(d.startswith('plugins') for d in details))
+
+    def test_storage_clears_what_can_no_longer_be_used(self):
+        expired=self.record();adopted=self.record();fresh=self.record()
+        for info,change in ((expired,{'expires':time.time()-5}),(adopted,{'expires':time.time()-5,'status':'installed','installed_profile':'kept'})):
+            info.update(change);write_json(self.drops.entry(info['id'])/'review.json',info)
+        old=self.drops.data/('export-'+'c'*32);old.mkdir();(self.drops.data/(old.name+'.zip')).write_text('z')
+        os.utime(old,(time.time()-8*86400,)*2)
+        recent=self.drops.data/('export-'+'d'*32);recent.mkdir()
+        bystander=self.drops.profiles/'kept';bystander.mkdir(parents=True)
+        self.drops.check_capacity()
+        self.assertFalse(self.drops.entry(expired['id']).exists());self.assertFalse(old.exists())
+        self.assertFalse((self.drops.data/(old.name+'.zip')).exists())
+        for kept in (self.drops.entry(adopted['id']),self.drops.entry(fresh['id']),recent,bystander):self.assertTrue(kept.exists())
+
+    def test_chat_preview_is_short_and_says_how_to_adopt(self):
+        from drops_v2.commands import preview_text
+        info=self.record();text=preview_text(info)
+        self.assertTrue(text.startswith('Sample Bot'))
+        self.assertIn('Needs: OPENAI_API_KEY',text);self.assertIn('Skills: writer',text)
+        self.assertIn('/drop install '+info['id']+' --name sample-bot',text)
+        self.assertNotIn('Not specified',text)
+
+    def test_signed_in_profiles_with_their_own_settings_can_be_shared(self):
+        profile=self.author_profile()
+        token='ya29.A0'+'bC3dE4fG5hI6jK7'*3
+        (profile/'auth.json').write_text(json.dumps({'active_provider':'openai-codex','providers':{'nous':{'client_id':'hermes-cli','portal_base_url':'https://portal.example.com/api','access_token':token}}}))
+        (profile/'.env').write_text('HERMES_MODEL_NAME=openai-codex\nCUSTOM_API_KEY=shortkey9\n')
+        (profile/'config.yaml').write_text('model:\n  provider: openai\n  default: gpt-4.1-mini\n  api_key: '+token+'\nauth:\n  provider: openai-codex\n  client: hermes-cli\n  portal: https://portal.example.com/api\n')
+        (profile/'mcp.json').write_text(json.dumps({'servers':{'mine':{'command':'node','env':{'TOKEN':token}}}}))
+        (profile/'SOUL.md').write_text('I run on openai-codex through hermes-cli.')
+        package=Path(self.drops.publish('author',confirmed=True)['directory'])
+        self.assertEqual(read_data(package/'config.yaml')['model'],{'provider':'openai','default':'gpt-4.1-mini'})
+        self.assertFalse((package/'mcp.json').exists())
+        for file in tree_files(package):self.assertNotIn(token.encode(),file.read_bytes())
+        for leaked in (token,'shortkey9'):
+            (profile/'SOUL.md').write_text('Use '+leaked+' for everything.')
+            with self.subTest(leaked=leaked[:4]),self.assertRaises(DropError) as caught:self.drops.publish('author',confirmed=True)
+            self.assertNotIn(leaked,str(caught.exception));self.assertIn('SOUL.md',str(caught.exception))
+
     def test_publish_skips_skills_bundled_with_hermes(self):
         profile=self.drops.profiles/'author';(profile/'skills/mine').mkdir(parents=True);(profile/'skills/cat/hermes-agent').mkdir(parents=True)
         (profile/'SOUL.md').write_text('Mine.')

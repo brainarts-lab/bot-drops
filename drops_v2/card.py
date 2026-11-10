@@ -124,15 +124,26 @@ def render_card(info, target, credit=True):
     while size > 52 and len(_wrap(draw, _title(info), font('title', size), 1072, 9)) > 2:
         size -= 4
     y = 150
-    for line in _wrap(draw, _title(info), font('title', size), 1072, 2):
+    title = _wrap(draw, _title(info), font('title', size), 1072, 2)
+    for line in title:
         draw.text((64, y), line, fill=INK, font=font('title', size)); y += int(size * 1.02)
-    body = font('body', 32)
-    for line in _wrap(draw, info.get('description') or 'A Hermes bot, ready to make your own.', body, 1040, 3 if size < 80 else 2):
-        draw.text((64, y + 16), line, fill=MUTED, font=body); y += 42
+    # A short name leaves room: let the one line that says what the bot does be read at thumbnail size.
+    roomy = len(title) == 1
+    body = font('body', 40 if roomy else 32)
+    for line in _wrap(draw, info.get('description') or 'A Hermes bot, ready to make your own.', body, 1040, 3):
+        draw.text((64, y + 18), line, fill=MUTED, font=body); y += 52 if roomy else 42
     draw.line((64, 520, 1136, 520), fill=LINE, width=2)
     mono = font('mono', 20)
-    draw.text((64, 552), '   ·   '.join(_facts(info)).upper(), fill=MUTED, font=mono)
     cta = 'ADOPT IN YOUR HERMES →'
+    room = 1072 - draw.textlength(cta, font=mono) - 48
+    facts = _facts(info)
+    line = lambda: '   ·   '.join(facts).upper()
+    while len(facts) > 1 and draw.textlength(line(), font=mono) > room:
+        facts.pop()  # the sharer's name matters most; later facts are also on the page
+    text = line()
+    while len(text) > 1 and draw.textlength(text, font=mono) > room:
+        text = text[:-2].rstrip() + '…'
+    draw.text((64, 552), text, fill=MUTED, font=mono)
     draw.text((1136 - draw.textlength(cta, font=mono), 552), cta, fill=LIME, font=mono)
     image.save(target, format='PNG', optimize=True)
 

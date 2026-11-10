@@ -10,12 +10,17 @@ import tempfile
 import time
 import uuid
 
-from .safety import (DropError, NAME, PRIVATE, clean_text, clone_public, digest, name_ok,
+from .safety import (DropError, MAX_BYTES, MAX_FILE, MAX_FILES, NAME, PRIVATE, clean_text, clone_public, digest, name_ok,
                      profile_credentials, read_data, run_bounded, secret_scan, tree_files)
 
 STANDARD = {'SOUL.md','config.yaml','mcp.json','skills','cron','distribution.yaml'}
 MANIFEST_KEYS = {'name','version','description','author','license','hermes_requires','env_requires','distribution_owned','source','installed_at'}
 SAFE_MODEL_PROVIDERS = {'openai','anthropic','openrouter','nous','google','groq'}
+NEUTRAL_CONFIG = {'plugins':{'enabled':[]},'mcp_servers':{}}
+PREVIEW_TTL = 86400          # a preview can be adopted for 24 hours
+EXPORT_TTL = 7 * 86400       # share packages are local copies; old ones are removed
+TAGLINE = 140
+DEFAULT_DESCRIPTION = 'A shared Hermes bot'
 
 
 def write_json(path, value):
@@ -62,6 +67,7 @@ def inspect_tree(root):
     config=read_data(root/'config.yaml')
     if not isinstance(config,dict): raise DropError('config.yaml must be an object.')
     for key,value in config.items():
+        if NEUTRAL_CONFIG.get(key,object())==value: continue  # the empty defaults Bot Drops itself writes
         if key=='model':
             detail=json.dumps(value,ensure_ascii=False)[:800]
             warnings.append({'kind':'endpoint','title':'Model configuration','detail':detail,
@@ -106,6 +112,16 @@ def inspect_tree(root):
             'trust_notice':'Only adopt bots from sources you trust. Their personality and skills guide your agent; profiles are not a security sandbox.'}
 
 
+def model_choice(config):
+    """The only setting that travels with a bot: a known built-in provider and a plain model name."""
+    original=config.get('model',{}) if isinstance(config,dict) else {}
+    if isinstance(original,dict) and original.get('provider') in SAFE_MODEL_PROVIDERS:
+        model=original.get('default')
+        if isinstance(model,str) and re.fullmatch(r'[A-Za-z0-9_.:/-]{1,160}',model):
+            return {'model':{'provider':original['provider'],'default':model}}
+    return {}
+
+
 def safe_payload(source,target):
     """Create the exact installation payload shown by preview. Never copy arbitrary config."""
     info=inspect_tree(source)
@@ -115,12 +131,8 @@ def safe_payload(source,target):
     safe_manifest['distribution_owned']=['SOUL.md','config.yaml','skills','cron','distribution.yaml']
     write_json(target/'distribution.yaml',safe_manifest)
     # An explicit config prevents fresh-profile model/credential seeding from a personal profile.
-    config={'plugins':{'enabled':[]},'mcp_servers':{}}
-    original=read_data(source/'config.yaml').get('model',{})
-    if isinstance(original,dict) and original.get('provider') in SAFE_MODEL_PROVIDERS:
-        model=original.get('default')
-        if isinstance(model,str) and re.fullmatch(r'[A-Za-z0-9_.:/-]{1,160}',model):
-            config['model']={'provider':original['provider'],'default':model}
+    config=json.loads(json.dumps(NEUTRAL_CONFIG))
+    config.update(model_choice(read_data(source/'config.yaml')))
     write_json(target/'config.yaml',config)
     for file in tree_files(source):
         rel=file.relative_to(source)
@@ -151,6 +163,54 @@ def bundled_skill_dirs(profile):
     return {f.parent for f in skills.rglob('SKILL.md') if f.parent.name in names and not f.is_symlink()}
 
 
+def _visible_files(root):
+    """Regular files below root, without hidden or private folders (Hermes keeps large caches such as skills/.hub there)."""
+    files=[]
+    for current,dirs,names in os.walk(root,followlinks=False):
+        dirs[:]=sorted(d for d in dirs if not d.startswith('.') and d not in PRIVATE)
+        for n in dirs+names:
+            if n.startswith('.') or n in PRIVATE: continue
+            path=Path(current)/n
+            if path.is_symlink(): raise DropError('Symlinks are not supported: '+str(path.relative_to(root)))
+            if n in names:
+                if not path.is_file(): raise DropError('Only regular files are supported.')
+                files.append(path)
+    return sorted(files)
+
+
+def shareable_files(source):
+    """(file, relative path) of everything a share package takes from a profile.
+    Skills: only the author's own skill folders, not what Hermes seeded and not loose category notes.
+    Settings and connections (config.yaml, mcp.json) are never taken; see model_choice."""
+    bundled=bundled_skill_dirs(source)
+    count=total=0
+    for rel in ('SOUL.md','distribution.yaml','skills','cron/jobs.json'):
+        p=source/rel
+        if not p.exists(): continue
+        if p.is_symlink(): raise DropError('Symlink in shareable profile content: '+rel)
+        if p.is_dir():
+            files=_visible_files(p)
+            own={f.parent for f in files if f.name=='SKILL.md' and f.parent not in bundled}
+            chosen=[f for f in files if any(d==f.parent or d in f.parents for d in own)]
+        else:
+            chosen=[p]
+        for f in chosen:
+            size=f.stat().st_size;count+=1;total+=size
+            if size>MAX_FILE or total>MAX_BYTES or count>MAX_FILES:
+                raise DropError('This bot is too large to share (20 MB in total, 1 MB per file, 1,000 files): '+str(f.relative_to(source)))
+            yield f,f.relative_to(source)
+
+
+def tagline(text):
+    """One line the sharer writes about the bot; shown on the card and the page."""
+    text=' '.join(str(text or '').split())
+    if len(text)>TAGLINE: raise DropError('Keep the description under '+str(TAGLINE)+' characters.')
+    return clean_text(text,TAGLINE)
+
+
+_LOGIN={'at':0.0,'login':''}
+
+
 class Drops:
     def __init__(self, home, *, hermes=None):
         self.home=Path(home).resolve()
@@ -179,7 +239,7 @@ class Drops:
         record=self.entry(identifier); record.mkdir(mode=0o700)
         try:
             info=safe_payload(source,record/'payload')
-            info.update(id=identifier,source=origin,commit=sha,created=time.time(),expires=time.time()+86400,
+            info.update(id=identifier,source=origin,commit=sha,created=time.time(),expires=time.time()+PREVIEW_TTL,
                         payload_digest=digest(record/'payload'),status='review',installed_profile=None)
             # Persist the review, not arbitrary remote code or the source .git directory.
             write_json(record/'review.json',info)
@@ -214,10 +274,40 @@ class Drops:
             except DropError: pass
         return sorted(items,key=lambda i:i['created'],reverse=True)[:50]
 
+    def prune(self):
+        """Remove what can no longer be used: expired previews, old share packages, stale work folders.
+        Adopted bots keep their record. Never touches profiles."""
+        now=time.time()
+        with self.lock():
+            for path in list(self.data.iterdir()):
+                try:
+                    if path.is_symlink() or not path.is_dir(): continue
+                    name=path.name;age=now-path.stat().st_mtime
+                    if re.fullmatch(r'[0-9a-f]{32}',name):
+                        try: info=json.loads((path/'review.json').read_text())
+                        except (OSError,ValueError): info=None
+                        if info is None: stale=age>PREVIEW_TTL
+                        else: stale=info.get('status')=='review' and info.get('expires',0)<now
+                    elif re.fullmatch(r'export-[0-9a-f]{32}',name): stale=age>EXPORT_TTL
+                    elif name.startswith(('fetch-','publish-','github-')): stale=age>PREVIEW_TTL
+                    else: stale=False
+                    if not stale: continue
+                    shutil.rmtree(path)
+                    if name.startswith('export-'):
+                        for suffix in ('.zip','.options.json','.github.json'): (self.data/(name+suffix)).unlink(missing_ok=True)
+                except OSError:
+                    continue
+
     def check_capacity(self):
-        # No unbounded fetch/export accumulation. Deletion is intentionally an explicit local action.
-        if sum(1 for p in self.data.iterdir() if p.is_dir())>=30:
-            raise DropError('Local drop storage is full (30 packages). Remove old packages from the Bot Drops data folder before continuing.')
+        self.prune()
+        pending=0
+        for path in self.data.iterdir():
+            if not path.is_dir(): continue
+            try: adopted=json.loads((path/'review.json').read_text()).get('status')=='installed'
+            except (OSError,ValueError): adopted=False
+            pending+=not adopted
+        if pending>=40:
+            raise DropError('Too many open previews and share packages. They clear on their own within a day; try again later.')
 
     def install(self,identifier,name,*,confirmed=False):
         if confirmed is not True: raise DropError('Explicit confirmation is required before adoption.')
@@ -290,41 +380,69 @@ class Drops:
         if not self.profiles.exists(): return []
         return sorted(p.name for p in self.profiles.iterdir() if p.is_dir() and not p.is_symlink() and NAME.fullmatch(p.name))
 
-    def publish(self,profile,*,confirmed=False,credit=True):
-        if confirmed is not True: raise DropError('Review and confirm the profile before preparing a share package.')
-        self.check_capacity()
+    def _source(self,profile):
         # Default is intentionally available only via an explicit UI selection and confirmation.
         if profile!='default': name_ok(profile)
         source=self.root if profile=='default' else self.profiles/profile
         if not source.is_dir() or source.is_symlink(): raise DropError('Profile not found.')
+        return source
+
+    def _login(self):
+        if time.time()-_LOGIN['at']>300:
+            _LOGIN.update(at=time.time(),login=self.github_status().get('login') or '')
+        return _LOGIN['login']
+
+    def share_preview(self,profile,description=None):
+        """What the card of this profile will say. Reads names and counts only; packages nothing."""
+        source=self._source(profile)
+        manifest={}
+        path=source/'distribution.yaml'
+        if path.is_file() and not path.is_symlink():
+            data=read_data(path)
+            if isinstance(data,dict): manifest=data
+        name=manifest.get('name') if isinstance(manifest.get('name'),str) and NAME.fullmatch(manifest.get('name')) else (profile if profile!='default' else 'my-agent')
+        saved=' '.join(str(manifest.get('description') or '').split())[:TAGLINE]
+        text=(tagline(description) if description is not None else '') or saved
+        author=str(manifest.get('author') or '').strip()[:120]
+        if not author:
+            login=self._login()
+            author='@'+login if login else ''
+        env=[{'name':str(e.get('name')),'required':e.get('required',True) is not False}
+             for e in manifest.get('env_requires') or [] if isinstance(e,dict) and re.fullmatch(r'[A-Z][A-Z0-9_]{1,79}',str(e.get('name','')))]
+        skills=[{'name':f.parent.name} for f,sub in shareable_files(source) if f.name=='SKILL.md' and sub.parts[0]=='skills']
+        return {'name':name,'description':text or DEFAULT_DESCRIPTION,'saved_description':saved,'author':author,'env_requires':env,'skills':skills}
+
+    def publish(self,profile,*,confirmed=False,credit=True,description=None):
+        if confirmed is not True: raise DropError('Review and confirm the profile before preparing a share package.')
+        self.check_capacity()
+        source=self._source(profile)
+        if description is not None: description=tagline(description)
         identifier=uuid.uuid4().hex
         directory=self.data/('export-'+identifier)
         with tempfile.TemporaryDirectory(prefix='publish-',dir=self.data) as temp:
             staging=Path(temp)/'source'; staging.mkdir()
-            bundled=bundled_skill_dirs(source)
-            for rel in ('SOUL.md','distribution.yaml','config.yaml','mcp.json','skills','cron/jobs.json'):
-                p=source/rel
-                if not p.exists(): continue
-                if p.is_symlink(): raise DropError('Symlink in shareable profile content: '+rel)
-                if p.is_dir():
-                    for f in tree_files(p):
-                        sub=f.relative_to(source)
-                        if any(part.startswith('.') or part in PRIVATE for part in sub.parts): continue
-                        # Skills that ship with Hermes belong to every installation; only the author's own are shared.
-                        if any(d in f.parents for d in bundled): continue
-                        dest=staging/sub;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(f,dest)
-                else:
-                    dest=staging/rel;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(p,dest)
+            for f,sub in shareable_files(source):
+                dest=staging/sub;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(f,dest)
             if not (staging/'distribution.yaml').exists():
                 write_json(staging/'distribution.yaml',{'name':profile if profile!='default' else 'my-agent',
-                           'description':'A shared Hermes bot','version':'1.0.0','author':'','env_requires':[]})
+                           'description':DEFAULT_DESCRIPTION,'version':'1.0.0','author':'','env_requires':[]})
             manifest=read_data(staging/'distribution.yaml')
-            if isinstance(manifest,dict) and not str(manifest.get('author') or '').strip():
-                # Recipients should see who shared the bot: use the GitHub account when signed in.
-                login=self.github_status().get('login')
-                if login: manifest['author']='@'+login; write_json(staging/'distribution.yaml',manifest)
-            # Scan before sanitization: a key in config or skill blocks publishing, never silently disappears.
-            secret_scan(staging,profile_credentials(source))
+            if isinstance(manifest,dict):
+                changed=False
+                if description: manifest['description']=description;changed=True
+                elif not str(manifest.get('description') or '').strip(): manifest['description']=DEFAULT_DESCRIPTION;changed=True
+                if not str(manifest.get('author') or '').strip():
+                    # Recipients should see who shared the bot: use the GitHub account when signed in.
+                    login=self.github_status().get('login')
+                    if login: manifest['author']='@'+login;changed=True
+                if changed: write_json(staging/'distribution.yaml',manifest)
+            # The profile's settings stay home. Only the model choice travels, as plain names.
+            try: choice=model_choice(read_data(source/'config.yaml')) if not (source/'config.yaml').is_symlink() else {}
+            except (DropError,OSError): choice={}
+            if choice: write_json(staging/'config.yaml',choice)
+            # A key pasted into the personality, a skill or a task blocks sharing; it never silently disappears.
+            known=profile_credentials(source)
+            secret_scan(staging,known)
             try: info=safe_payload(staging,directory)
             except BaseException:
                 shutil.rmtree(directory,ignore_errors=True)
@@ -341,7 +459,7 @@ class Drops:
             requirements='\n'.join('- '+e['name']+(' (required)' if e['required'] else ' (optional)') for e in info['env_requires']) or 'Choose your own model provider and configure its key in Hermes.'
             (directory/'README.md').write_text('# '+info['name']+'\n\n'+info['description']+'\n\n![Drop card](drop-card.png)\n\n## Requirements\n\n'+requirements+'\n\n## Adopt in Hermes\n\nOpen Bot Drops in your Hermes dashboard and paste this repository URL, or send the URL to your Hermes chat and ask to preview the bot. Advanced: `/drop preview <repository URL>`. Review the exact commit before adopting.\n\nProfiles are not a security sandbox. Only adopt bots from sources you trust.\n')
             (directory/'share.txt').write_text(f"Meet {info['name']}: {info['description']}\nPreview and adopt this agent in your own Hermes. Bring your own model access.\nLink: <paste your repository link here>\n")
-            secret_scan(directory)
+            secret_scan(directory,known)  # the finished package, against this profile's own stored keys
             return {'id':'export-'+identifier,'name':info['name'],'directory':str(directory),
                     'files':[str(p.relative_to(directory)) for p in tree_files(directory)],'warnings':info['warnings'],
                     'message':'Share package prepared locally. Nothing has been posted or pushed.'}

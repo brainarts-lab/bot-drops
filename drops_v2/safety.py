@@ -133,15 +133,30 @@ def secret_scan(root, known_values=()):
             raise DropError('Possible credential found in '+str(rel)+'. Remove it before sharing. The value was not logged.')
 
 
+SECRET_NAME = re.compile(r'key|token|secret|passw|credential|cookie|session|private|signature|bearer|jwt', re.I)
+
+
+def _is_secret(name, value):
+    """Is this stored value something that must never leave the computer?
+    Login stores also hold plain facts (provider names, client ids, service addresses) that appear
+    in ordinary files; treating those as credentials would block sharing for every signed-in user."""
+    if len(value) < 8 or re.fullmatch(r'https?://[^\s@?#]+', value):
+        return False
+    if SECRET_NAME.search(name):
+        return True
+    return len(value) >= 20 and ' ' not in value and bool(re.search(r'\d', value)) and bool(re.search(r'[A-Za-z]', value))
+
+
 def profile_credentials(source):
     """Read only bounded local secret stores for exact-match scanning, never return their values to UI."""
     values=set()
-    def collect(value):
-        if isinstance(value,str) and len(value)>=8: values.add(value)
+    def collect(name,value):
+        if isinstance(value,str):
+            if _is_secret(name,value): values.add(value)
         elif isinstance(value,dict):
-            for v in value.values(): collect(v)
+            for k,v in value.items(): collect(str(k),v)
         elif isinstance(value,list):
-            for v in value: collect(v)
+            for v in value: collect(name,v)
     for name in ('.env','auth.json'):
         path=source/name
         if not path.exists(): continue
@@ -149,11 +164,12 @@ def profile_credentials(source):
             raise DropError('Cannot scan the local credential store. Export was stopped.')
         try:
             content=path.read_text('utf-8')
-            if name.endswith('.json'): collect(json.loads(content))
+            if name.endswith('.json'): collect('',json.loads(content))
             else:
                 for line in content.splitlines():
                     if line.strip() and not line.lstrip().startswith('#') and '=' in line:
-                        collect(line.split('=',1)[1].strip().strip('\"\''))
+                        key,value=line.split('=',1)
+                        collect(key.strip(),value.strip().strip('\"\''))
         except (OSError,ValueError) as exc:
             raise DropError('Cannot scan the local credential store. Export was stopped.') from exc
     return values

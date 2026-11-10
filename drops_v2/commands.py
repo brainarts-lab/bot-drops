@@ -1,32 +1,40 @@
 import json
+import re
 import shlex
 
 from .core import Drops
 from .safety import DropError
 
-HELP='''Bot Drops for Hermes · Share a bot. Make it yours.
-Open Bot Drops in Hermes Desktop, or /drops/import in your Hermes dashboard.
-You can also ask: "Preview this agent: <GitHub URL>" or "Help me share my bot".
+HELP='''Bot Drops for Hermes · share a bot, make it yours
 
-/drop example — preview the bundled Carousel Writer
-/drop preview <repository URL> — inspect without installing
-/drop install <preview ID> [--name new-bot] — review and confirm adoption
-/drop publish <profile name> — confirm a local share package
+Send a bot link and I show you what is inside:
+/drop preview <link>
+/drop example — try the bundled Carousel Writer
+/drop install <preview ID> --name my-bot — adopt it as a new bot, after you confirm
+/drop publish <bot name> — prepare a share package
 /drop list — recent previews
-No model call, publication, or message is started by these commands.'''
+
+You can also just ask: "Show me this bot: <link>".
+To share with one click and get a link and a card, open Bot Drops in Hermes Desktop or the dashboard.
+Nothing is installed, posted or run by a preview.'''
 
 
 def preview_text(info):
-    lines=[f"{info['name']} · {info['version']} by {info['author']}",info['description'],
-           'Source: '+info['source'],'Commit: '+info['commit'],'Hermes: '+info['hermes_requires'],
-           'Keys: '+(', '.join(e['name']+(' (required)' if e['required'] else ' (optional)') for e in info['env_requires']) or 'Choose your own provider access'),
-           'Skills: '+(', '.join(s['name']+': '+s['description'] for s in info['skills']) or 'None')]
-    for warning in info['warnings']:
-        lines.append(warning['title']+': '+warning['detail']+' → '+warning['action'])
-    for job in info['cron']:lines.append('Paused task: '+job['name']+' · '+job['schedule'])
-    lines.extend([info['trust_notice'],'Review ID: '+info['id'],
-                  'Review the full instructions in Bot Drops before adopting.',
-                  f"Continue in Bot Drops, or /drop install {info['id']} --name {info['name']}"])
+    title=str(info['name']).replace('-',' ').title()
+    author=info['author'] if info['author']!='Not specified' else ''
+    lines=[title+(' · shared by '+author if author else ''),info['description'],'']
+    keys=', '.join(e['name']+('' if e['required'] else ' (optional)') for e in info['env_requires'])
+    lines.append('Needs: '+(keys or 'your own model access'))
+    if info['skills']: lines.append('Skills: '+', '.join(s['name'] for s in info['skills']))
+    for job in info['cron']: lines.append('Paused task: '+job['name']+' · '+job['schedule'])
+    if info['warnings']:
+        kinds=sorted({w['title'] for w in info['warnings']})
+        count=len(info['warnings'])
+        lines.append(f"Left out for safety: {count} {'thing' if count==1 else 'things'} ({', '.join(kinds)[:300]})")
+    lines.extend(['','Nothing is installed yet. To adopt it as your own new bot:',
+                  f"/drop install {info['id']} --name {info['name']}",'',
+                  'Source: '+info['source']+(' @ '+info['commit'][:12] if re.fullmatch(r'[0-9a-f]{40}',info['commit']) else ''),
+                  info['trust_notice']])
     return '\n'.join(lines)
 
 
@@ -41,17 +49,17 @@ def handle(ctx,home,raw_args):
         if len(args)==2 and args[0]=='preview':return preview_text(drops.preview(args[1]))
         if args[0]=='install' and (len(args)==2 or len(args)==4 and args[2]=='--name'):
             info=drops.get(args[1]);name=args[3] if len(args)==4 else info['name']
-            choice=ctx.ask_choice(preview_text(info)+f'\nAdopt into a NEW bot named {name}? No model run will start.',
+            choice=ctx.ask_choice(preview_text(info)+f'\n\nAdopt this as a new bot named {name}? Your existing bots stay as they are.',
                                   [{'value':'adopt','label':'Adopt new bot'},{'value':'cancel','label':'Cancel'}])
-            if choice!='adopt':return 'Nothing installed. Confirm in Bot Drops in Desktop/dashboard if this chat cannot show choices.'
+            if choice!='adopt':return 'Nothing was installed. If this chat cannot show buttons, adopt the bot in Bot Drops in Hermes Desktop or the dashboard.'
             result=drops.install(info['id'],name,confirmed=True)
-            return f"Agent adopted as {result['installed_profile']}. Open Bot Drops in Desktop to set up Bot Mode and its Bot Chat. Configure your own provider before the first message."
+            return f"Done, {result['installed_profile']} is yours. Add your own model key in Hermes, then say hi to it. No message was sent and no model has run."
         if len(args)==2 and args[0]=='publish':
-            choice=ctx.ask_choice(f'Prepare a share package from {args[1]}? Personality and text skills are copied. Credentials, memory and chats are excluded. Review every file before publishing. Nothing is pushed.',
+            choice=ctx.ask_choice(f'Prepare a share package from {args[1]}? It contains the personality and your own skills. Keys, memory and chats stay out. Nothing is posted.',
                                   [{'value':'publish','label':'Prepare share package'},{'value':'cancel','label':'Cancel'}])
-            if choice!='publish':return 'Nothing exported. Confirm in Bot Drops in Desktop/dashboard if this chat cannot show choices.'
+            if choice!='publish':return 'Nothing was prepared. If this chat cannot show buttons, share the bot in Bot Drops in Hermes Desktop or the dashboard.'
             result=drops.publish(args[1],confirmed=True)
-            return result['message']+'\n'+result['directory']+'\nReview README.md, drop-card.png and share.txt before sharing.'
+            return result['message']+'\n'+result['directory']+'\nFor a public link and card in one step, open Bot Drops in Hermes Desktop or the dashboard and choose Share.'
         return 'Usage:\n'+HELP
     except (DropError,ValueError) as exc:return 'Bot Drops: '+str(exc)
     except OSError:return 'Bot Drops could not complete the local operation. No automatic retry was started.'

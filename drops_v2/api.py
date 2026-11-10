@@ -1,4 +1,5 @@
 """Hermes-authenticated dashboard/desktop routes. Never mount on an unauthenticated server."""
+import base64
 import hashlib
 import io
 import json
@@ -44,7 +45,21 @@ class Install(Input):
 class Publish(Input):
     name: str=Field(min_length=2,max_length=48)
     credit: bool=True
+    description: str|None=Field(default=None,max_length=300)
     confirmation: str=Field(min_length=32,max_length=100)
+
+class Card(Input):
+    name: str=Field(min_length=2,max_length=48)
+    credit: bool=True
+    description: str|None=Field(default=None,max_length=300)
+
+
+def card_image(info,credit=True):
+    """The link card as a data URI, so both hosts can show it without a second authenticated request."""
+    from .card import render_card
+    output=io.BytesIO()
+    render_card(info,output,credit=credit)
+    return 'data:image/png;base64,'+base64.b64encode(output.getvalue()).decode()
 
 
 def create_router(home_provider):
@@ -93,13 +108,29 @@ def create_router(home_provider):
         drops=service()
         return {'profiles':drops.profile_names(),'reviews':drops.list(),
                 'home_name':drops.home.name,'data_directory':str(drops.data),
-                'limits':'Public GitHub/GitLab repositories only. 20 MB total, 1 MB per file, 1,000 files. Previews expire after 24 hours.'}
+                'limits':'Public GitHub/GitLab repositories only. 20 MB total, 1 MB per file, 1,000 files. A preview can be adopted for 24 hours.'}
 
     @router.post('/preview')
     def preview(body: Preview):return call(lambda:service().preview(body.url.strip()))
 
     @router.post('/example')
     def example():return call(lambda:service().example())
+
+    @router.get('/example/card')
+    def example_card():
+        from .core import inspect_tree
+        from pathlib import Path
+        return call(lambda:{'image':card_image(inspect_tree(Path(__file__).resolve().parents[1]/'examples'/'carousel-writer'))})
+
+    @router.get('/reviews/{identifier}/card')
+    def review_card(identifier: str):return call(lambda:{'image':card_image(service().get(identifier))})
+
+    @router.post('/card')
+    def card(body: Card):
+        def render():
+            info=service().share_preview(body.name,body.description)
+            return {'image':card_image(info,body.credit),'description':info['saved_description'],'author':info['author'],'skills':len(info['skills'])}
+        return call(render)
 
     @router.get('/reviews/{identifier}')
     def get(identifier: str):return call(lambda:service().get(identifier))
@@ -136,7 +167,7 @@ def create_router(home_provider):
     def publish(body: Publish):
         def act():
             drops=service();consume(drops,body.confirmation,intent(drops,'publish','',body.name))
-            result=drops.publish(body.name,confirmed=True,credit=body.credit)
+            result=drops.publish(body.name,confirmed=True,credit=body.credit,description=body.description)
             package=drops.data/result['id'];archive=drops.data/(result['id']+'.zip')
             with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as output:
                 for file in tree_files(package):output.write(file,str(file.relative_to(package)))
