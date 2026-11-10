@@ -14,7 +14,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from .core import Drops, write_json
-from .safety import DropError, digest, name_ok, read_data, tree_files
+from .safety import DropError, digest, name_ok, read_data, rel_path, tree_files
 
 
 class Input(BaseModel):
@@ -46,12 +46,14 @@ class Publish(Input):
     name: str=Field(min_length=2,max_length=48)
     credit: bool=True
     description: str|None=Field(default=None,max_length=300)
+    owner: str=Field(default='',max_length=39)
     confirmation: str=Field(min_length=32,max_length=100)
 
 class Card(Input):
     name: str=Field(min_length=2,max_length=48)
     credit: bool=True
     description: str|None=Field(default=None,max_length=300)
+    owner: str=Field(default='',max_length=39)
 
 
 def card_image(info,credit=True):
@@ -97,7 +99,7 @@ def create_router(home_provider):
         if not re.fullmatch(r'[A-Za-z0-9_-]{43}',token):raise DropError('Invalid confirmation.')
         path=drops.data/('confirm-'+hashlib.sha256(token.encode()).hexdigest()+'.json')
         with drops.lock():
-            try: saved=json.loads(path.read_text())
+            try: saved=json.loads(path.read_text('utf-8'))
             except (OSError,ValueError):raise DropError('Confirmation expired or already used.') from None
             if saved['expires']<time.time() or saved['intent']!=expected:
                 raise DropError('Confirmation does not match this action. Review it again.')
@@ -106,7 +108,7 @@ def create_router(home_provider):
     @router.get('/bootstrap')
     def bootstrap():
         drops=service()
-        return {'profiles':drops.profile_names(),'reviews':drops.list(),
+        return {'profiles':drops.profile_names(),'retired':drops.retired_names(),'reviews':drops.list(),
                 'home_name':drops.home.name,'data_directory':str(drops.data),
                 'limits':'Public GitHub/GitLab repositories only. 20 MB total, 1 MB per file, 1,000 files. A preview can be adopted for 24 hours.'}
 
@@ -128,7 +130,7 @@ def create_router(home_provider):
     @router.post('/card')
     def card(body: Card):
         def render():
-            info=service().share_preview(body.name,body.description)
+            info=service().share_preview(body.name,body.description,body.owner or None)
             return {'image':card_image(info,body.credit),'description':info['saved_description'],'author':info['author'],'skills':len(info['skills'])}
         return call(render)
 
@@ -140,7 +142,7 @@ def create_router(home_provider):
         def read():
             drops=service();info=drops.get(identifier);payload=drops.entry(identifier)/'payload'
             if digest(payload)!=info['payload_digest']:raise DropError('Reviewed files changed.')
-            return {'files':[{'path':str(p.relative_to(payload)),'text':p.read_text('utf-8')} for p in tree_files(payload) if p.suffix.lower() in {'.md','.txt'}]}
+            return {'files':[{'path':rel_path(p,payload),'text':p.read_text('utf-8')} for p in tree_files(payload) if p.suffix.lower() in {'.md','.txt'}]}
         return call(read)
 
     @router.post('/confirm')
@@ -167,10 +169,10 @@ def create_router(home_provider):
     def publish(body: Publish):
         def act():
             drops=service();consume(drops,body.confirmation,intent(drops,'publish','',body.name))
-            result=drops.publish(body.name,confirmed=True,credit=body.credit,description=body.description)
+            result=drops.publish(body.name,confirmed=True,credit=body.credit,description=body.description,owner=body.owner or None)
             package=drops.data/result['id'];archive=drops.data/(result['id']+'.zip')
             with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as output:
-                for file in tree_files(package):output.write(file,str(file.relative_to(package)))
+                for file in tree_files(package):output.write(file,rel_path(file,package))
             archive.chmod(0o600)
             result['archive']=str(archive)
             return result
@@ -197,7 +199,7 @@ def create_router(home_provider):
                 return Response((path/name).read_bytes(),media_type='image/png',headers={'Content-Disposition':'attachment; filename="'+name+'"','Cache-Control':'no-store'})
             output=io.BytesIO()
             with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED) as archive:
-                for p in files:archive.write(p,str(p.relative_to(path)))
+                for p in files:archive.write(p,rel_path(p,path))
             return Response(output.getvalue(),media_type='application/zip',headers={'Content-Disposition':'attachment; filename="bot-drop.zip"','Cache-Control':'no-store'})
         return call(read)
 

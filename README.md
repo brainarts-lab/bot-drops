@@ -1,14 +1,20 @@
 # Bot Drops for Hermes
 
-![Bot Drops for Hermes](assets/catalog-banner.png)
-
 Share a Hermes bot as a link and a card. Anyone with Hermes can preview it and adopt their own copy as a new profile.
+
+![Three steps: share your bot, get a link and a card, anyone makes it theirs](assets/how-it-works.png)
 
 Made by BrainArts · [@chrisbrainarts on X](https://x.com/chrisbrainarts) · MIT licensed
 
+## Try it
+
+[![Launch Buddy, a Hermes bot shared with Bot Drops](https://brainarts-lab.github.io/launch-buddy/drop-card.png)](https://brainarts-lab.github.io/launch-buddy/)
+
+[Launch Buddy](https://brainarts-lab.github.io/launch-buddy/) is a small bot we shared with Bot Drops: paste your README and it answers with a one-line pitch, a launch post and a 60-second demo script. Install the plugin, paste the link `https://brainarts-lab.github.io/launch-buddy/` into Bot Drops, and it is yours.
+
 ## What it does
 
-**Adopt a bot.** Open a bot link, or paste it into Bot Drops. You see the bot's card, what it needs and what was left out, before anything is installed. Adopting always creates a **new** Hermes profile through Hermes' own `hermes profile install`, pinned to the exact commit you reviewed. Existing profiles, including `default`, are never changed.
+**Adopt a bot.** Open a bot link, or paste it into Bot Drops. You see the bot's card, what it needs and what was left out, before anything is installed. Adopting always creates a **new** Hermes profile through Hermes' own `hermes profile install`, pinned to the exact commit you reviewed. Existing profiles, including `default`, are never changed. The adopted bot runs with your own model access; the sharer's keys and logins never travel with it.
 
 | Find a bot | Look before you adopt |
 | --- | --- |
@@ -59,7 +65,8 @@ Profiles are not a security sandbox: a bot's personality and skills guide your a
 
 ## Limits
 
-- macOS and Linux. Windows is not supported yet (POSIX file locking and process groups).
+- Built and tested on macOS. Linux and native Windows run the same code; file locking, process cleanup, paths and Git's certificate store are handled per system. Windows support is new in 0.5.0 and has not been confirmed on a Windows machine yet, so please report what you see.
+- A bot name you removed earlier cannot be used again for a new bot (Hermes 0.23.0 keeps a mark for removed profiles). Bot Drops suggests a free name.
 - Opening a link on a phone cannot jump into Hermes directly. The bot page offers a message for your Hermes chat instead.
 - Hermes Desktop support covers local Hermes sources.
 - Shared bots are public repositories. Private sharing is not supported.
@@ -71,6 +78,7 @@ python -m pip install "Pillow==13.0.0" "ruamel.yaml==0.18.16" "fastapi>=0.115,<0
 python -m unittest discover -s tests -v
 node --test tests/test_drops_ui.cjs
 python scripts/build-ui.py   # rebuilds dashboard/dist/index.js and desktop/plugin.js from ui/
+python scripts/check-live-preview.py https://brainarts-lab.github.io/launch-buddy/   # previews a live bot, installs nothing
 ```
 
 The GitHub tests use a stand-in `gh` and local bare repositories; they never contact GitHub.

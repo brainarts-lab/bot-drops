@@ -3,7 +3,9 @@
 Real git runs (init, fetch, commit, push); nothing reaches the network."""
 import os
 from pathlib import Path
+import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -13,43 +15,52 @@ from drops_v2.safety import DropError, read_data
 
 DROP_REPO = '{"topics":["hermes-agent-drop"],"permissions":{"push":true},"default_branch":"main","private":false}'
 OTHER_REPO = '{"topics":[],"permissions":{"push":true},"default_branch":"main","private":false}'
-FAKE_GH = """#!/bin/sh
-echo "gh $*" >> "__BASE__/log"
-case "$*" in
-  "api user --jq .login") [ -e "__BASE__/signedout" ] && exit 1; echo tester;;
-  "api user/orgs --jq .[].login") echo acme;;
-  "api repos/tester/taken") echo '__OTHER__';;
-  "api repos/tester/old-drop") echo '__DROP__';;
-  "api repos/"*"/pages --jq .html_url") exit 1;;
-  "api repos/"*) [ -d "__BASE__/remotes/${2#repos/}.git" ] && { echo '__DROP__'; exit 0; }; exit 1;;
-  "repo list tester "*) echo old-drop;;
-  "repo create "*) /usr/bin/git init -q --bare "__BASE__/remotes/$3.git";;
-  *) exit 0;;
-esac
+REAL_GIT = shutil.which('git')
+# Stand-ins are small Python programs so that the same tests run on macOS, Linux and Windows.
+FAKE_GH = """import os, subprocess, sys
+base, args = __BASE__, sys.argv[1:]
+line = ' '.join(args)
+with open(os.path.join(base, 'log'), 'a') as log: log.write('gh ' + line + '\\n')
+def say(text): print(text); sys.exit(0)
+if line == 'api user --jq .login':
+    if os.path.exists(os.path.join(base, 'signedout')): sys.exit(1)
+    say('tester')
+if line == 'api user/orgs --jq .[].login': say('acme')
+if line == 'api repos/tester/taken': say(__OTHER__)
+if line == 'api repos/tester/old-drop': say(__DROP__)
+if line.startswith('api repos/') and line.endswith('/pages --jq .html_url'): sys.exit(1)
+if line.startswith('api repos/'):
+    if os.path.isdir(os.path.join(base, 'remotes', args[1][len('repos/'):] + '.git')): say(__DROP__)
+    sys.exit(1)
+if line.startswith('repo list tester '): say('old-drop')
+if line.startswith('repo create '):
+    sys.exit(subprocess.call([__GIT__, 'init', '-q', '--bare', os.path.join(base, 'remotes', args[2] + '.git')]))
 """
 # Redirect https://github.com/<owner>/<repo>.git to a local bare repository; everything else is real git.
-FAKE_GIT = """#!/bin/sh
-n=$#
-for a in "$@"; do
-  case "$a" in https://github.com/*) a="__BASE__/remotes/${a#https://github.com/}";; esac
-  set -- "$@" "$a"
-done
-shift $n
-unset GIT_ALLOW_PROTOCOL
-exec /usr/bin/git "$@"
+FAKE_GIT = """import os, subprocess, sys
+base, prefix = __BASE__, 'https://github.com/'
+args = [os.path.join(base, 'remotes', a[len(prefix):]) if a.startswith(prefix) else a for a in sys.argv[1:]]
+os.environ.pop('GIT_ALLOW_PROTOCOL', None)
+sys.exit(subprocess.call([__GIT__] + args))
 """
 
 
 def git(*args, cwd=None):
-    return subprocess.run(['/usr/bin/git', *args], cwd=cwd, check=True, capture_output=True, text=True).stdout
+    return subprocess.run([REAL_GIT, *args], cwd=cwd, check=True, capture_output=True, text=True).stdout
 
 
 def install_fakes(base):
     """Write the stand-in gh/git into base/bin and return that directory."""
     bin_dir = Path(base) / 'bin'; bin_dir.mkdir(exist_ok=True)
     for name, body in (('gh', FAKE_GH), ('git', FAKE_GIT)):
-        text = body.replace('__BASE__', str(base)).replace('__DROP__', DROP_REPO).replace('__OTHER__', OTHER_REPO)
-        (bin_dir / name).write_text(text); (bin_dir / name).chmod(0o700)
+        script = bin_dir / ('fake_' + name + '.py')
+        script.write_text(body.replace('__BASE__', repr(str(base))).replace('__GIT__', repr(REAL_GIT))
+                          .replace('__DROP__', repr(DROP_REPO)).replace('__OTHER__', repr(OTHER_REPO)))
+        if os.name == 'nt':
+            (bin_dir / (name + '.cmd')).write_text('@echo off\n"' + sys.executable + '" "' + str(script) + '" %*\n')
+        else:
+            (bin_dir / name).write_text('#!/bin/sh\nexec "' + sys.executable + '" "' + str(script) + '" "$@"\n')
+            (bin_dir / name).chmod(0o700)
     (Path(base) / 'log').write_text('')
     return bin_dir
 
@@ -100,6 +111,16 @@ class GitHubPublishTests(unittest.TestCase):
     def test_shared_package_names_the_github_account(self):
         self.assertEqual(read_data(Path(self.package['directory']) / 'distribution.yaml')['author'], '@tester')
 
+    def test_bot_shared_under_an_organisation_names_it_on_the_card_and_the_commit(self):
+        package = self.drops.publish('author-bot', confirmed=True, owner='acme')
+        self.assertEqual(read_data(Path(package['directory']) / 'distribution.yaml')['author'], '@acme')
+        self.drops.publish_github(package['id'], 'acme', 'team-bot', confirmed=True)
+        author = git('log', '-1', '--format=%an <%ae>', 'main', cwd=self.remote('acme/team-bot')).strip()
+        self.assertEqual(author, 'acme <acme@users.noreply.github.com>')
+        # An account the user cannot publish under is never shown as the sharer.
+        other = self.drops.publish('author-bot', confirmed=True, owner='someone-else')
+        self.assertEqual(read_data(Path(other['directory']) / 'distribution.yaml')['author'], '@tester')
+
     def test_creates_public_repo_uploads_package_enables_pages(self):
         result = self.drops.publish_github(self.id, 'acme', 'author-bot', confirmed=True)
         self.assertEqual(result['repo_url'], 'https://github.com/acme/author-bot')
@@ -111,6 +132,7 @@ class GitHubPublishTests(unittest.TestCase):
             self.assertIn(name, files)
         log = self.commands()
         self.assertTrue(any('/pages' in c and 'POST' in c for c in log)); self.assertTrue(any('--add-topic hermes-bot-drop' in c for c in log))
+        self.assertTrue(any('--homepage https://acme.github.io/author-bot/' in c for c in log))  # repository links to the bot page
         self.assertIn('https://acme.github.io/author-bot/', result['post_text'])
         head = git('rev-parse', 'main', cwd=self.remote('acme/author-bot')).strip()
         self.assertEqual(result['commit'], head)
@@ -122,6 +144,9 @@ class GitHubPublishTests(unittest.TestCase):
         self.assertIn('data-repo="https://github.com/acme/author-bot"', page)
         self.assertIn('data-share="https://acme.github.io/author-bot/?v=' + self.id[len('export-'):][:7], page)
         self.assertIn('x.com/chrisbrainarts', page)
+        readme = git('show', 'main:README.md', cwd=self.remote('acme/author-bot'))
+        self.assertIn('# Author Bot', readme); self.assertIn('(https://acme.github.io/author-bot/)', readme)
+        self.assertIn('1 skill: writer', readme); self.assertIn('hermes plugins install', readme)
 
     def test_credit_choice_survives_until_the_upload(self):
         package = self.drops.publish('author-bot', confirmed=True, credit=False)

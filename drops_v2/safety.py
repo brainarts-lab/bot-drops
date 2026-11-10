@@ -5,9 +5,12 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import signal
 import socket
+import stat
 import subprocess
+import sys
 import tempfile
 import time
 from urllib.parse import urlsplit
@@ -26,6 +29,46 @@ SECRET = re.compile(r'(?:sk-(?:proj-|ant-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0
 
 class DropError(ValueError):
     pass
+
+
+WINDOWS = os.name == 'nt'
+# What a helper program may inherit: where programs and the user's own folders are. Never keys.
+ENV_KEYS = ('PATH', 'LANG', 'TMPDIR', 'HOME') + (
+    ('SYSTEMROOT', 'SYSTEMDRIVE', 'WINDIR', 'COMSPEC', 'PATHEXT', 'TEMP', 'TMP', 'USERPROFILE', 'HOMEDRIVE',
+     'HOMEPATH', 'APPDATA', 'LOCALAPPDATA', 'PROGRAMDATA', 'PROGRAMFILES', 'PROGRAMFILES(X86)', 'USERNAME')
+    if WINDOWS else ())
+
+
+def base_env():
+    return {k: os.environ[k] for k in ENV_KEYS if k in os.environ}
+
+
+def rel_path(path, root):
+    """Relative path with forward slashes on every system (shown to people, compared and hashed)."""
+    return Path(path).relative_to(root).as_posix()
+
+
+def write_text(path, text):
+    """UTF-8 with plain line endings everywhere; Windows would otherwise use its local code page."""
+    Path(path).write_bytes(str(text).encode('utf-8'))
+
+
+def remove_tree(path, ignore_errors=False):
+    """Delete a folder. Git marks its object files read-only, which Windows refuses to delete as they are."""
+    def retry(function, target, _):
+        os.chmod(target, stat.S_IWRITE)
+        function(target)
+    handler = {'onexc': retry} if sys.version_info >= (3, 12) else {'onerror': retry}
+    shutil.rmtree(path, ignore_errors=ignore_errors, **({} if ignore_errors else handler))
+
+
+def tool(name, env=None):
+    """Full path of an installed program, found on PATH without a shell."""
+    found = shutil.which(name, path=(env if env is not None else os.environ).get('PATH'))
+    if not found:
+        raise DropError('Git is not installed. Install Git, then try again.' if name == 'git'
+                        else 'A required program is not installed: ' + name)
+    return found
 
 
 def name_ok(name):
@@ -49,7 +92,8 @@ def source_url(value, resolve=True):
     if value.startswith(('github.com/', 'gitlab.com/')):
         value = 'https://' + value
     # A GitHub Pages address of a shared bot (https://owner.github.io/repo/) names its repository.
-    pages = re.fullmatch(r'https://([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\.github\.io/([A-Za-z0-9_][A-Za-z0-9_.-]*)/?(?:index\.html)?', value)
+    # The link Bot Drops hands out ends in ?v=<version>, so that is accepted here and nowhere else.
+    pages = re.fullmatch(r'https://([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\.github\.io/([A-Za-z0-9_][A-Za-z0-9_.-]*)/?(?:index\.html)?(?:\?v=[0-9a-f]{1,40})?', value)
     if pages:
         value = 'https://github.com/' + pages.group(1) + '/' + pages.group(2)
     u = urlsplit(value)
@@ -82,7 +126,7 @@ def tree_files(root, *, include_git=False):
                 raise DropError('File names must not contain control characters.')
             p = Path(current)/n
             if p.is_symlink():
-                raise DropError('Symlinks are not supported: '+str(p.relative_to(root)))
+                raise DropError('Symlinks are not supported: '+rel_path(p,root))
         for n in names:
             p=Path(current)/n
             if not p.is_file():
@@ -98,7 +142,7 @@ def tree_files(root, *, include_git=False):
 def digest(root):
     h=hashlib.sha256()
     for p in tree_files(root):
-        h.update(str(p.relative_to(root)).encode()+b'\0'+p.read_bytes()+b'\0')
+        h.update(rel_path(p,root).encode()+b'\0'+p.read_bytes()+b'\0')
     return h.hexdigest()
 
 
@@ -127,10 +171,10 @@ def secret_scan(root, known_values=()):
     for p in tree_files(root):
         rel=p.relative_to(root)
         if any(part in PRIVATE or part.startswith('.env.') for part in rel.parts):
-            raise DropError('Private data is not shareable: '+str(rel))
+            raise DropError('Private data is not shareable: '+rel.as_posix())
         content=p.read_bytes().decode('utf-8',errors='ignore')
         if contains_secret(content) or any(value in content for value in known_values):
-            raise DropError('Possible credential found in '+str(rel)+'. Remove it before sharing. The value was not logged.')
+            raise DropError('Possible credential found in '+rel.as_posix()+'. Remove it before sharing. The value was not logged.')
 
 
 SECRET_NAME = re.compile(r'key|token|secret|passw|credential|cookie|session|private|signature|bearer|jwt', re.I)
@@ -206,11 +250,69 @@ def read_data(path, fallback=None):
     return value if value is not None else ({} if fallback is None else fallback)
 
 
+def _spawn(argv, env, cwd, output):
+    """Start a program in its own group so that it and everything it starts can be stopped together."""
+    common = dict(env=env, cwd=cwd, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT)
+    if not WINDOWS:
+        return subprocess.Popen(argv, start_new_session=True, **common), None
+    proc = subprocess.Popen(argv, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW, **common)
+    job = None
+    try:
+        # A job object keeps track of descendants even after their parent has exited.
+        import ctypes
+        from ctypes import wintypes
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel.CreateJobObjectW.restype = wintypes.HANDLE
+        kernel.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
+        kernel.AssignProcessToJobObject.restype = wintypes.BOOL
+        kernel.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+        kernel.TerminateJobObject.restype = wintypes.BOOL
+        kernel.TerminateJobObject.argtypes = [wintypes.HANDLE, wintypes.UINT]
+        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        handle = kernel.CreateJobObjectW(None, None)
+        if handle and kernel.AssignProcessToJobObject(handle, int(proc._handle)):
+            job = (kernel, handle)
+        elif handle:
+            kernel.CloseHandle(handle)
+    except (OSError, AttributeError, ValueError):
+        job = None
+    return proc, job
+
+
+def _stop(proc, job):
+    """End the program and its descendants. Never raises."""
+    if not WINDOWS:
+        try: os.killpg(proc.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError): pass
+    else:
+        if proc.poll() is None:
+            taskkill = os.path.join(os.environ.get('SYSTEMROOT', r'C:\Windows'), 'System32', 'taskkill.exe')
+            try:
+                subprocess.run([taskkill, '/F', '/T', '/PID', str(proc.pid)], stdin=subprocess.DEVNULL,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10,
+                               creationflags=subprocess.CREATE_NO_WINDOW)
+            except (OSError, subprocess.SubprocessError): pass
+        if job:
+            kernel, handle = job
+            kernel.TerminateJobObject(handle, 1)
+            kernel.CloseHandle(handle)
+        if proc.poll() is None:
+            try: proc.kill()
+            except OSError: pass
+    try: proc.wait(timeout=5)
+    except subprocess.TimeoutExpired: pass
+
+
 def run_bounded(argv, *, env, cwd, monitored=None, timeout=45, detail=False):
-    """No shell. Kill the whole process group, including descendants after parent exit."""
+    """No shell. Stops the whole process group, including descendants after the parent has exited."""
+    argv = [str(a) for a in argv]
+    if not os.path.isabs(argv[0]):
+        argv[0] = tool(argv[0], env)
+    if WINDOWS and argv[0].lower().endswith(('.cmd', '.bat')) and any(re.search(r'[&|<>^%"\r\n]', a) for a in argv[1:]):
+        # Windows hands batch files to its command interpreter, which would read these characters as commands.
+        raise DropError('This text contains characters that cannot be passed on safely on Windows: & | < > ^ % "')
     with tempfile.TemporaryFile() as output:
-        proc=subprocess.Popen(argv,env=env,cwd=cwd,stdin=subprocess.DEVNULL,stdout=output,
-                              stderr=subprocess.STDOUT,start_new_session=True)
+        proc, job = _spawn(argv, env, cwd, output)
         try:
             deadline=time.monotonic()+timeout
             while proc.poll() is None:
@@ -230,22 +332,24 @@ def run_bounded(argv, *, env, cwd, monitored=None, timeout=45, detail=False):
             output.seek(0)
             return output.read(MAX_FILE).decode('utf-8',errors='replace')
         finally:
-            try: os.killpg(proc.pid,signal.SIGKILL)
-            except ProcessLookupError: pass
-            proc.wait(timeout=5)
+            _stop(proc, job)
 
 
 def git_env():
-    env={k:os.environ[k] for k in ('PATH','LANG','TMPDIR','HOME') if k in os.environ}
-    env.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull, GIT_TERMINAL_PROMPT='0',
+    env=base_env()
+    # Git for Windows reads "/dev/null" as its null device too.
+    env.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL='/dev/null', GIT_TERMINAL_PROMPT='0',
                GIT_LFS_SKIP_SMUDGE='1',GIT_ALLOW_PROTOCOL='https')
     return env
 
 
+# Without the system configuration, Git for Windows has no certificate list of its own: use the Windows store.
+GIT_SAFE = ['-c','core.hooksPath=/dev/null'] + (['-c','http.sslBackend=schannel'] if WINDOWS else [])
+
+
 def clone_public(url, target):
     url=source_url(url)
-    args=['git','-c','http.followRedirects=false','-c','credential.helper=',
-          '-c','core.hooksPath=/dev/null','-c','protocol.file.allow=never']
+    args=['git','-c','http.followRedirects=false','-c','credential.helper=']+GIT_SAFE+['-c','protocol.file.allow=never']
     env=git_env()
     run_bounded(args+['clone','--depth','1','--no-checkout','--',url,str(target)],env=env,
                 cwd=target.parent,monitored=target)

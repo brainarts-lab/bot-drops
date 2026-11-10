@@ -12,7 +12,7 @@ import re
 import shutil
 import tempfile
 
-from .safety import DropError, git_env, run_bounded, secret_scan, tree_files
+from .safety import DropError, GIT_SAFE, git_env, run_bounded, secret_scan, tree_files, write_text
 
 REPO=re.compile(r'[a-z0-9][a-z0-9-]{1,62}')
 OWNER=re.compile(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})')
@@ -94,7 +94,7 @@ def publish(package,owner,repo,description,*,state,cwd,finish=None,mode='create'
     if not info['available']: raise DropError(info['reason'])
     if owner not in info['owners']: raise DropError('You cannot publish under that GitHub account.')
     if state.exists():
-        saved=json.loads(state.read_text())
+        saved=json.loads(state.read_text('utf-8'))
         if saved['owner']==owner and saved['repo']==repo: return saved
         raise DropError('This package was already published as '+saved['owner']+'/'+saved['repo']+'.')
     if not package.is_dir() or package.is_symlink(): raise DropError('Share package not found.')
@@ -113,15 +113,15 @@ def publish(package,owner,repo,description,*,state,cwd,finish=None,mode='create'
         if not BRANCH.fullmatch(branch) or '..' in branch: raise DropError('Unsupported default branch.')
         page=_pages(gh,slug,owner,repo,cwd) or 'https://'+owner.lower()+'.github.io/'+repo+'/'
     changed=True
-    with tempfile.TemporaryDirectory(prefix='github-',dir=cwd) as temp:
+    with tempfile.TemporaryDirectory(prefix='github-',dir=cwd,ignore_cleanup_errors=True) as temp:
         work=Path(temp)/'repo';work.mkdir()
         for file in tree_files(package):
             target=work/file.relative_to(package);target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(file,target)
         if finish: finish(work,url,page)
         secret_scan(work)  # exactly what will be uploaded
-        who=['-c','user.name='+info['login'],'-c','user.email='+info['login']+'@users.noreply.github.com',
-             '-c','core.hooksPath=/dev/null','-c','commit.gpgsign=false']
-        auth=['-c','credential.helper=','-c','credential.helper='+HELPER]
+        # The commit carries the account the bot is shared under (your own or your organization), not a private e-mail.
+        who=['-c','user.name='+owner,'-c','user.email='+owner+'@users.noreply.github.com','-c','commit.gpgsign=false']+GIT_SAFE
+        auth=['-c','credential.helper=','-c','credential.helper='+HELPER]+GIT_SAFE
         _run(['git','init','-q','-b',branch],work)
         _run(['git','remote','add','origin',url+'.git'],work)
         if mode=='update':
@@ -146,9 +146,10 @@ def publish(package,owner,repo,description,*,state,cwd,finish=None,mode='create'
                     raise DropError('The repository '+url+' was created but the upload failed ('+str(exc)+'). Delete it on GitHub or choose another name.') from None
                 raise DropError('The update could not be uploaded ('+str(exc)+'). Nothing was overwritten.') from None
     pages=_pages(gh,slug,owner,repo,cwd)
-    try: _run([gh,'repo','edit',slug,'--add-topic',TOPIC],cwd,30)
+    # The topic lets Bot Drops find its own drops again; the link sends visitors of the repository to the bot page.
+    try: _run([gh,'repo','edit',slug,'--add-topic',TOPIC]+(['--homepage',pages] if pages else []),cwd,30)
     except DropError: pass
     result={'owner':owner,'repo':repo,'repo_url':url,'pages_url':pages,'mode':mode,'changed':changed,
             'commit':head if re.fullmatch(r'[0-9a-f]{40}',head) else ''}
-    state.write_text(json.dumps(result));state.chmod(0o600)
+    write_text(state,json.dumps(result));state.chmod(0o600)
     return result

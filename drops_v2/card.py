@@ -2,6 +2,7 @@
 
 Uses the typefaces of the user's own Hermes installation when present (never shipped with this plugin),
 otherwise Pillow's built-in font."""
+import os
 from pathlib import Path
 import sys
 
@@ -17,8 +18,13 @@ def _font_dirs():
     if loaded is not None and getattr(loaded, '__file__', None):
         base = Path(loaded.__file__).resolve().parent / 'web_dist'
         dirs += [base / 'fonts', base / 'fonts-terminal']
-    base = Path.home() / '.hermes' / 'hermes-agent' / 'hermes_cli' / 'web_dist'
-    return dirs + [base / 'fonts', base / 'fonts-terminal']
+    homes = [Path.home() / '.hermes']
+    if os.environ.get('LOCALAPPDATA'):  # where Hermes lives on Windows
+        homes.append(Path(os.environ['LOCALAPPDATA']) / 'hermes')
+    for home in homes:
+        base = home / 'hermes-agent' / 'hermes_cli' / 'web_dist'
+        dirs += [base / 'fonts', base / 'fonts-terminal']
+    return dirs
 
 
 _CACHE = {}

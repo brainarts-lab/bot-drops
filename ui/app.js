@@ -51,7 +51,7 @@ function createDropsApp(React, bridge) {
     }
     async function refresh() {
       const data = await bridge.api('/bootstrap');
-      profiles.current = data.profiles || [];
+      profiles.current = (data.profiles || []).concat(data.retired || []);  // names a new bot cannot take
       if (mounted.current) setBoot(data);
     }
     function previewLink(link) {
@@ -83,18 +83,20 @@ function createDropsApp(React, bridge) {
       bridge.api('/reviews/'+reviewId+'/card').then(r => mounted.current && setCards(c => ({...c, review: {id: reviewId, src: r.image}}))).catch(() => {});
     }, [reviewId]);
     const typed = touched ? tagline : null;
+    // The card names the account the bot is shared under: your own, or an organization you choose.
+    const sharedAs = target === 'update' ? (existing.split('/')[0] || '') : owner;
     useEffect(() => {
       if (tab !== 'share' || !profile) return;
       let live = true;
       const timer = setTimeout(() => {
-        bridge.api('/card', {name: profile, credit, ...(typed === null ? {} : {description: typed})}).then(r => {
+        bridge.api('/card', {name: profile, credit, ...(sharedAs ? {owner: sharedAs} : {}), ...(typed === null ? {} : {description: typed})}).then(r => {
           if (!live || !mounted.current) return;
           setCards(c => ({...c, share: {profile, src: r.image}}));
           if (typed === null) setTagline(r.description || '');
         }).catch(() => {});
       }, typed === null ? 0 : 350);
       return () => { live = false; clearTimeout(timer); };
-    }, [tab, profile, credit, typed]);
+    }, [tab, profile, credit, typed, sharedAs]);
 
     function select(info) {
       if (!mounted.current) return;
@@ -128,9 +130,9 @@ function createDropsApp(React, bridge) {
     }
     async function makePackage() {
       // One package per chosen bot; a failed upload can be retried without packaging again.
-      if (exported && exported.profile === profile && exported.credit === credit && exported.tagline === tagline) return exported;
+      if (exported && exported.profile === profile && exported.credit === credit && exported.tagline === tagline && exported.owner === sharedAs) return exported;
       const consent = await bridge.api('/confirm', {action: 'publish', name: profile});
-      const result = {...await bridge.api('/publish', {name: profile, credit, description: tagline.trim(), confirmation: consent.confirmation}), profile, credit, tagline};
+      const result = {...await bridge.api('/publish', {name: profile, credit, description: tagline.trim(), ...(sharedAs ? {owner: sharedAs} : {}), confirmation: consent.confirmation}), profile, credit, tagline, owner: sharedAs};
       if (mounted.current) setExported(result);
       return result;
     }
@@ -173,12 +175,14 @@ function createDropsApp(React, bridge) {
 
     const installed = review?.status === 'installed';
     const validName = /^[a-z][a-z0-9-]{1,47}$/.test(name) && !['default','hermes','test','tmp','root','sudo'].includes(name);
-    const taken = boot?.profiles?.includes(name) && !installed;
-    const nameHint = taken ? 'You already have a bot with that name.' : name && !validName ? 'Use lowercase letters, numbers and hyphens.' : '';
+    const retired = boot?.retired?.includes(name) && !installed;
+    const taken = (boot?.profiles?.includes(name) || retired) && !installed;
+    const nameHint = retired ? 'A bot with that name was removed earlier. Choose another name.' : taken ? 'You already have a bot with that name.' : name && !validName ? 'Use lowercase letters, numbers and hyphens.' : '';
 
     // Start: paste a link, or pick up the example card.
     const seen = new Set();
     const recentItems = (boot?.reviews || []).filter(i => {
+      if (i.status === 'installed' && !(boot?.profiles || []).includes(i.installed_profile)) return false;  // that bot was removed since
       const key = i.installed_profile || i.name;
       if (seen.has(key)) return false;
       seen.add(key); return true;

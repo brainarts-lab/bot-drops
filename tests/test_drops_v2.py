@@ -5,12 +5,13 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from unittest.mock import patch
 
 from drops_v2.core import Drops, inspect_tree, safe_payload, write_json
-from drops_v2.safety import DropError, digest, read_data, run_bounded, source_url, tree_files
+from drops_v2.safety import DropError, digest, read_data, remove_tree, run_bounded, source_url, tree_files
 
 
 class DropsV2Tests(unittest.TestCase):
@@ -40,6 +41,14 @@ class DropsV2Tests(unittest.TestCase):
         for bad in ('https://example.github.io/a/b/','https://evil.example/example.github.io/sample/','http://example.github.io/sample/'):
             with self.assertRaises(DropError): source_url(bad,resolve=False)
 
+    def test_link_handed_out_after_sharing_can_be_pasted_back(self):
+        # "Your bot is live" shows https://owner.github.io/repo/?v=<version>; that is what people post and paste.
+        for link in ('https://example.github.io/sample/?v=8bbf949','https://example.github.io/sample/index.html?v=0'):
+            self.assertEqual(source_url(link,resolve=False),'https://github.com/example/sample')
+        for bad in ('https://example.github.io/sample/?v=','https://example.github.io/sample/?v=8bbf949&next=//evil.example',
+                    'https://example.github.io/sample/?next=x','https://example.github.io/sample/?v=8bbf949#x','https://github.com/a/b?v=8bbf949'):
+            with self.subTest(link=bad),self.assertRaises(DropError): source_url(bad,resolve=False)
+
     def test_private_dns_rejected(self):
         with patch('drops_v2.safety.socket.getaddrinfo',return_value=[(2,1,6,'',('127.0.0.1',443))]),self.assertRaises(DropError):
             source_url('example/sample')
@@ -58,7 +67,8 @@ class DropsV2Tests(unittest.TestCase):
         self.assertEqual(info['env_requires'][0]['name'],'OPENAI_API_KEY')
 
     def test_symlinks_and_oversize_rejected(self):
-        (self.source/'linked').symlink_to('/etc/passwd')
+        try: (self.source/'linked').symlink_to('/etc/passwd')
+        except OSError: self.skipTest('This account may not create symlinks.')
         with self.assertRaises(DropError): self.record()
         (self.source/'linked').unlink();(self.source/'huge').write_bytes(b'a'*(1024*1024+1))
         with self.assertRaises(DropError): self.record()
@@ -187,6 +197,19 @@ class DropsV2Tests(unittest.TestCase):
         (self.drops.profiles/'existing-bot').mkdir(parents=True)
         with self.assertRaises(DropError):self.drops.install(info['id'],'existing-bot',confirmed=True)
 
+    def test_name_of_a_removed_bot_is_refused_before_anything_is_created(self):
+        # Hermes 0.23.0 keeps profiles/.deleted/<name> after `hermes profile delete` and then fails half way through
+        # `hermes profile install --name <name>`, leaving a broken profile behind (seen for real on 10 Nov 2026).
+        info=self.record()
+        (self.drops.profiles/'.deleted').mkdir(parents=True);(self.drops.profiles/'.deleted'/'old-bot').write_text('deleted\n')
+        self.assertEqual(self.drops.retired_names(),['old-bot'])
+        with patch('drops_v2.core.run_bounded') as installer, self.assertRaises(DropError) as raised:
+            self.drops.install(info['id'],'old-bot',confirmed=True)
+        installer.assert_not_called()
+        self.assertIn('removed earlier',str(raised.exception))
+        self.assertFalse((self.drops.profiles/'old-bot').exists())
+        self.assertEqual(self.drops.get(info['id'])['status'],'review')  # the preview can still be adopted under a new name
+
     def test_snapshot_is_pinned_and_success_idempotent(self):
         info=self.record();original=(self.source/'SOUL.md').read_text()
         (self.source/'SOUL.md').write_text('Author changed remote source after preview')
@@ -285,9 +308,58 @@ class DropsV2Tests(unittest.TestCase):
         pidfile=self.base/'pid'
         program='import subprocess,time,pathlib,sys; p=subprocess.Popen([sys.executable,"-c","import time;time.sleep(30)"]);pathlib.Path(sys.argv[1]).write_text(str(p.pid));time.sleep(30)'
         with self.assertRaises(DropError):run_bounded([sys.executable,'-c',program,str(pidfile)],env=os.environ.copy(),cwd=self.base,timeout=.4)
-        pid=int(pidfile.read_text())
-        result=subprocess.run(['ps','-o','stat=','-p',str(pid)],capture_output=True,text=True)
-        self.assertTrue(not result.stdout.strip() or result.stdout.strip().startswith('Z'))
+        self.assertTrue(self.gone(int(pidfile.read_text())))
+
+    def test_helper_left_behind_by_a_finished_program_is_stopped(self):
+        pidfile=self.base/'pid'
+        program='import subprocess,pathlib,sys; p=subprocess.Popen([sys.executable,"-c","import time;time.sleep(30)"]);pathlib.Path(sys.argv[1]).write_text(str(p.pid))'
+        run_bounded([sys.executable,'-c',program,str(pidfile)],env=os.environ.copy(),cwd=self.base,timeout=20)
+        self.assertTrue(self.gone(int(pidfile.read_text())))
+
+    def gone(self,pid):
+        """Has the process ended (or is it only waiting to be collected)? Allows a moment for the system to finish."""
+        for _ in range(60):
+            if os.name=='nt':
+                listed=subprocess.run(['tasklist','/FI','PID eq '+str(pid),'/NH','/FO','CSV'],capture_output=True,text=True).stdout
+                alive='"'+str(pid)+'"' in listed
+            else:
+                state=subprocess.run(['ps','-o','stat=','-p',str(pid)],capture_output=True,text=True).stdout.strip()
+                alive=bool(state) and not state.startswith('Z')
+            if not alive: return True
+            time.sleep(.05)
+        return False
+
+    def test_operations_wait_for_each_other(self):
+        order=[]
+        def work(tag):
+            with self.drops.lock():
+                order.append(tag+' starts');time.sleep(.2);order.append(tag+' ends')
+        threads=[threading.Thread(target=work,args=(tag,)) for tag in ('first','second')]
+        for t in threads: t.start()
+        for t in threads: t.join(10)
+        self.assertEqual(len(order),4)
+        self.assertEqual(order[0].split()[0],order[1].split()[0]);self.assertEqual(order[2].split()[0],order[3].split()[0])
+
+    def test_text_beyond_ascii_survives_sharing_and_adoption(self):
+        profile=self.drops.profiles/'gruss-bot';(profile/'skills'/'planer').mkdir(parents=True)
+        soul='Grüße! 你好 🚀 Antworte kurz.'
+        (profile/'SOUL.md').write_bytes(soul.encode('utf-8'))
+        (profile/'skills'/'planer'/'SKILL.md').write_bytes('---\nname: planer\ndescription: Plant die Woche.\n---\nSchritte.'.encode('utf-8'))
+        package=self.drops.publish('gruss-bot',confirmed=True,description='Plant deine Woche – übersichtlich 🚀')
+        out=Path(package['directory'])
+        self.assertIn('skills/planer/SKILL.md',package['files'])  # forward slashes on every system
+        for name in ('index.html','README.md','distribution.yaml'):
+            self.assertIn('übersichtlich 🚀',(out/name).read_bytes().decode('utf-8'))
+            self.assertNotIn(b'\r\n',(out/name).read_bytes())
+        info=self.drops._record(out,'local','local')
+        self.assertEqual(info['description'],'Plant deine Woche – übersichtlich 🚀')
+        self.assertEqual((self.drops.entry(info['id'])/'payload'/'SOUL.md').read_bytes().decode('utf-8'),soul)
+
+    def test_folders_with_read_only_files_can_be_cleared(self):
+        folder=self.base/'stale';(folder/'objects').mkdir(parents=True)
+        locked=folder/'objects'/'pack';locked.write_text('x');locked.chmod(0o444)
+        remove_tree(folder)
+        self.assertFalse(folder.exists())
 
 
 if __name__=='__main__':unittest.main()

@@ -35,6 +35,31 @@ def post_text(info, link):
     return (head + (' ' + description if description else '') + '\nAdopt it in your own Hermes: ' + link).strip()
 
 
+def render_readme(info, page=''):
+    """What visitors of the shared repository read on GitHub: what the bot is, what is inside, how to adopt it."""
+    title = title_of(info)
+    inside = ['- A personality (`SOUL.md`)']
+    skills = [s['name'] for s in info.get('skills') or []]
+    if skills:
+        inside.append('- ' + str(len(skills)) + (' skill: ' if len(skills) == 1 else ' skills: ') + ', '.join(skills))
+    if info.get('cron'):
+        inside.append('- ' + str(len(info['cron'])) + ' scheduled task(s), paused until you turn them on')
+    needs = ', '.join(e['name'] + ('' if e['required'] else ' (optional)') for e in info.get('env_requires') or [])
+    inside.append('- Needs: ' + needs if needs else '- Bring your own model access in Hermes')
+    inside.append('- No keys, memory or chats are included')
+    card = '![' + title + ', a Hermes bot](drop-card.png)'
+    lines = ['# ' + title, '', str(info.get('description') or ''), '', '[' + card + '](' + page + ')' if page else card, '']
+    if page:
+        lines += ['**[Open the bot page](' + page + ')** to adopt it with one click.', '']
+    lines += ['## What is inside', '', *inside, '', '## Make it yours', '',
+              '1. Install [Bot Drops](' + PLUGIN_REPO + ') in Hermes: `hermes plugins install ' + PLUGIN_REPO + ' --enable`',
+              '2. Open Bot Drops, paste the link of this repository and look at the preview.',
+              '3. Adopt it as a new bot. Your existing bots stay as they are.', '',
+              'In a Hermes chat you can also send the link and ask to preview the bot.', '',
+              'Profiles are not a security sandbox. Only adopt bots from people you trust.', '']
+    return '\n'.join(lines)
+
+
 PAGE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>__TITLE__ · Bot Drops for Hermes</title>

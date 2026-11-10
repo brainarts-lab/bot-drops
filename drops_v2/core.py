@@ -1,17 +1,18 @@
 import contextlib
-import fcntl
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import shutil
+import sys
 import tempfile
 import time
 import uuid
 
-from .safety import (DropError, MAX_BYTES, MAX_FILE, MAX_FILES, NAME, PRIVATE, clean_text, clone_public, digest, name_ok,
-                     profile_credentials, read_data, run_bounded, secret_scan, tree_files)
+from .safety import (DropError, MAX_BYTES, MAX_FILE, MAX_FILES, NAME, PRIVATE, WINDOWS, base_env, clean_text, clone_public,
+                     digest, name_ok, profile_credentials, read_data, rel_path, remove_tree, run_bounded, secret_scan,
+                     tree_files, write_text)
 
 STANDARD = {'SOUL.md','config.yaml','mcp.json','skills','cron','distribution.yaml'}
 MANIFEST_KEYS = {'name','version','description','author','license','hermes_requires','env_requires','distribution_owned','source','installed_at'}
@@ -25,7 +26,7 @@ DEFAULT_DESCRIPTION = 'A shared Hermes bot'
 
 def write_json(path, value):
     temp=path.with_suffix('.tmp-'+uuid.uuid4().hex)
-    temp.write_text(json.dumps(value,ensure_ascii=False,indent=2)+'\n')
+    write_text(temp,json.dumps(value,ensure_ascii=False,indent=2)+'\n')
     temp.chmod(0o600)
     temp.replace(path)
 
@@ -98,7 +99,7 @@ def inspect_tree(root):
     for file in files:
         rel=file.relative_to(root)
         if rel.parts[0]=='skills' and file.suffix.lower() not in {'.md','.txt'}:
-            omitted.append(str(rel))
+            omitted.append(rel.as_posix())
     if omitted:
         warnings.append({'kind':'code','title':'Skill attachments / programs','detail':', '.join(omitted)[:1500],
                          'action':'Only Markdown and text skill files are imported'})
@@ -136,9 +137,9 @@ def safe_payload(source,target):
     write_json(target/'config.yaml',config)
     for file in tree_files(source):
         rel=file.relative_to(source)
-        if str(rel)=='SOUL.md' or (rel.parts[0]=='skills' and file.suffix.lower() in {'.md','.txt'} and not any(p.startswith('.') for p in rel.parts)):
+        if rel.as_posix()=='SOUL.md' or (rel.parts[0]=='skills' and file.suffix.lower() in {'.md','.txt'} and not any(p.startswith('.') for p in rel.parts)):
             dest=target/rel;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(file,dest)
-        if str(rel)=='cron/jobs.json':
+        if rel.as_posix()=='cron/jobs.json':
             data=read_data(file,[])
             jobs=data.get('jobs',[]) if isinstance(data,dict) else data
             for job in jobs:
@@ -171,7 +172,7 @@ def _visible_files(root):
         for n in dirs+names:
             if n.startswith('.') or n in PRIVATE: continue
             path=Path(current)/n
-            if path.is_symlink(): raise DropError('Symlinks are not supported: '+str(path.relative_to(root)))
+            if path.is_symlink(): raise DropError('Symlinks are not supported: '+rel_path(path,root))
             if n in names:
                 if not path.is_file(): raise DropError('Only regular files are supported.')
                 files.append(path)
@@ -197,7 +198,7 @@ def shareable_files(source):
         for f in chosen:
             size=f.stat().st_size;count+=1;total+=size
             if size>MAX_FILE or total>MAX_BYTES or count>MAX_FILES:
-                raise DropError('This bot is too large to share (20 MB in total, 1 MB per file, 1,000 files): '+str(f.relative_to(source)))
+                raise DropError('This bot is too large to share (20 MB in total, 1 MB per file, 1,000 files): '+rel_path(f,source))
             yield f,f.relative_to(source)
 
 
@@ -208,7 +209,36 @@ def tagline(text):
     return clean_text(text,TAGLINE)
 
 
-_LOGIN={'at':0.0,'login':''}
+_LOGIN={'at':0.0,'login':'','owners':[]}
+
+
+@contextlib.contextmanager
+def file_lock(path):
+    """One Bot Drops operation at a time, across all Hermes processes on this computer."""
+    with open(path,'a+b') as handle:
+        if WINDOWS:
+            import msvcrt
+            while True:
+                handle.seek(0)
+                try: msvcrt.locking(handle.fileno(),msvcrt.LK_NBLCK,1);break
+                except OSError: time.sleep(.05)
+            try: yield
+            finally:
+                handle.seek(0);msvcrt.locking(handle.fileno(),msvcrt.LK_UNLCK,1)
+        else:
+            import fcntl
+            fcntl.flock(handle,fcntl.LOCK_EX)
+            yield
+
+
+def hermes_program():
+    """The Hermes command: on PATH, or next to the Python that runs Hermes (apps start with a short PATH)."""
+    found=shutil.which('hermes')
+    if found: return found
+    for name in ('hermes.exe','hermes'):
+        candidate=Path(sys.executable).parent/name
+        if candidate.is_file(): return str(candidate)
+    return None
 
 
 class Drops:
@@ -220,13 +250,12 @@ class Drops:
         legacy=self.home/'plugin-data'/'agent-drops'  # name before the rename to Bot Drops
         if not self.data.exists() and legacy.is_dir() and not legacy.is_symlink(): legacy.rename(self.data)
         self.data.mkdir(parents=True,exist_ok=True,mode=0o700)
-        self.hermes=hermes or shutil.which('hermes')
+        self.hermes=hermes or hermes_program()
 
     @contextlib.contextmanager
     def lock(self):
         shared=self.root/'plugin-data';shared.mkdir(exist_ok=True,mode=0o700)
-        with (shared/'bot-drops-operations.lock').open('a') as lock:
-            fcntl.flock(lock,fcntl.LOCK_EX)
+        with file_lock(shared/'bot-drops-operations.lock'):
             yield
 
     def entry(self,identifier):
@@ -245,12 +274,12 @@ class Drops:
             write_json(record/'review.json',info)
             return info
         except BaseException:
-            shutil.rmtree(record)
+            remove_tree(record,ignore_errors=True)
             raise
 
     def preview(self,url):
         self.check_capacity()
-        with tempfile.TemporaryDirectory(prefix='fetch-',dir=self.data) as temp:
+        with tempfile.TemporaryDirectory(prefix='fetch-',dir=self.data,ignore_cleanup_errors=True) as temp:
             source=Path(temp)/'source'
             sha=clone_public(url,source)
             return self._record(source,sha,url)
@@ -262,7 +291,7 @@ class Drops:
 
     def get(self,identifier):
         path=self.entry(identifier)/'review.json'
-        try: info=json.loads(path.read_text())
+        try: info=json.loads(path.read_text('utf-8'))
         except (OSError,ValueError) as exc: raise DropError('Preview not found in this Hermes profile.') from exc
         if info['expires']<time.time() and info['status']!='installed': raise DropError('Preview expired. Review the source again.')
         return info
@@ -284,7 +313,7 @@ class Drops:
                     if path.is_symlink() or not path.is_dir(): continue
                     name=path.name;age=now-path.stat().st_mtime
                     if re.fullmatch(r'[0-9a-f]{32}',name):
-                        try: info=json.loads((path/'review.json').read_text())
+                        try: info=json.loads((path/'review.json').read_text('utf-8'))
                         except (OSError,ValueError): info=None
                         if info is None: stale=age>PREVIEW_TTL
                         else: stale=info.get('status')=='review' and info.get('expires',0)<now
@@ -292,7 +321,7 @@ class Drops:
                     elif name.startswith(('fetch-','publish-','github-')): stale=age>PREVIEW_TTL
                     else: stale=False
                     if not stale: continue
-                    shutil.rmtree(path)
+                    remove_tree(path)
                     if name.startswith('export-'):
                         for suffix in ('.zip','.options.json','.github.json'): (self.data/(name+suffix)).unlink(missing_ok=True)
                 except OSError:
@@ -303,7 +332,7 @@ class Drops:
         pending=0
         for path in self.data.iterdir():
             if not path.is_dir(): continue
-            try: adopted=json.loads((path/'review.json').read_text()).get('status')=='installed'
+            try: adopted=json.loads((path/'review.json').read_text('utf-8')).get('status')=='installed'
             except (OSError,ValueError): adopted=False
             pending+=not adopted
         if pending>=40:
@@ -320,12 +349,14 @@ class Drops:
             if info['status']=='installing': raise DropError('The earlier installation has an uncertain outcome. Inspect it before retrying.')
             target=self.profiles/name
             if target.exists() or target.is_symlink(): raise DropError('That profile already exists. Choose another name.')
+            if name in self.retired_names():
+                raise DropError('A bot with that name was removed earlier, and Hermes does not reuse the name. Choose another name.')
             payload=self.entry(identifier)/'payload'
             if digest(payload)!=info['payload_digest']: raise DropError('Reviewed files changed. Create a new preview.')
             if not self.hermes: raise DropError('Hermes CLI is not available.')
             info['status']='installing';info['installed_profile']=name
             write_json(self.entry(identifier)/'review.json',info)
-            env={k:os.environ[k] for k in ('PATH','HOME','LANG','TMPDIR') if k in os.environ}
+            env=base_env()
             env.update(HERMES_HOME=str(self.home),HERMES_ENABLE_PROJECT_PLUGINS='0')
             try:
                 run_bounded([self.hermes,'profile','install',str(payload),'--name',name,'-y'],
@@ -356,15 +387,16 @@ class Drops:
     def publish_github(self,identifier,owner,repo,*,confirmed=False,mode='create'):
         if confirmed is not True: raise DropError('Explicit confirmation is required before creating a public repository.')
         from . import github
-        from .landing import post_text, render_landing
+        from .landing import post_text, render_landing, render_readme
         package=self.export_dir(identifier)
         info=inspect_tree(package)
         version=identifier[len('export-'):][:7]  # same suffix on the page's share buttons and in the plugin
         def finish(work,repo_url,page_url):
             # Final links are known now: absolute card URL for link previews, direct Adopt button.
-            try: credit=json.loads((self.data/(identifier+'.options.json')).read_text()).get('credit') is not False
+            try: credit=json.loads((self.data/(identifier+'.options.json')).read_text('utf-8')).get('credit') is not False
             except (OSError,ValueError): credit=True
-            (work/'index.html').write_text(render_landing(info,repo=repo_url,page=page_url,credit=credit,share=page_url+'?v='+version))
+            write_text(work/'index.html',render_landing(info,repo=repo_url,page=page_url,credit=credit,share=page_url+'?v='+version))
+            write_text(work/'README.md',render_readme(info,page_url))
         with self.lock():
             result=github.publish(package,owner,repo,info['description'],state=self.data/(identifier+'.github.json'),
                                   cwd=self.data,finish=finish,mode=mode)
@@ -380,6 +412,13 @@ class Drops:
         if not self.profiles.exists(): return []
         return sorted(p.name for p in self.profiles.iterdir() if p.is_dir() and not p.is_symlink() and NAME.fullmatch(p.name))
 
+    def retired_names(self):
+        """Names of bots that were removed earlier. Hermes 0.23 keeps a mark for each and stops half way
+        when a shared bot is installed under such a name, so adoption asks for another name instead."""
+        marks=self.profiles/'.deleted'
+        if not marks.is_dir() or marks.is_symlink(): return []
+        return sorted(p.name for p in marks.iterdir() if NAME.fullmatch(p.name))
+
     def _source(self,profile):
         # Default is intentionally available only via an explicit UI selection and confirmation.
         if profile!='default': name_ok(profile)
@@ -387,12 +426,14 @@ class Drops:
         if not source.is_dir() or source.is_symlink(): raise DropError('Profile not found.')
         return source
 
-    def _login(self):
-        if time.time()-_LOGIN['at']>300:
-            _LOGIN.update(at=time.time(),login=self.github_status().get('login') or '')
-        return _LOGIN['login']
+    def _account(self,owner=None,fresh=False):
+        """The GitHub name a bot is shared under: the chosen account or organization, else the signed-in user."""
+        if fresh or time.time()-_LOGIN['at']>300:
+            info=self.github_status()
+            _LOGIN.update(at=time.time(),login=info.get('login') or '',owners=info.get('owners') or [])
+        return owner if owner and owner in _LOGIN['owners'] else _LOGIN['login']
 
-    def share_preview(self,profile,description=None):
+    def share_preview(self,profile,description=None,owner=None):
         """What the card of this profile will say. Reads names and counts only; packages nothing."""
         source=self._source(profile)
         manifest={}
@@ -405,21 +446,21 @@ class Drops:
         text=(tagline(description) if description is not None else '') or saved
         author=str(manifest.get('author') or '').strip()[:120]
         if not author:
-            login=self._login()
+            login=self._account(owner)
             author='@'+login if login else ''
         env=[{'name':str(e.get('name')),'required':e.get('required',True) is not False}
              for e in manifest.get('env_requires') or [] if isinstance(e,dict) and re.fullmatch(r'[A-Z][A-Z0-9_]{1,79}',str(e.get('name','')))]
         skills=[{'name':f.parent.name} for f,sub in shareable_files(source) if f.name=='SKILL.md' and sub.parts[0]=='skills']
         return {'name':name,'description':text or DEFAULT_DESCRIPTION,'saved_description':saved,'author':author,'env_requires':env,'skills':skills}
 
-    def publish(self,profile,*,confirmed=False,credit=True,description=None):
+    def publish(self,profile,*,confirmed=False,credit=True,description=None,owner=None):
         if confirmed is not True: raise DropError('Review and confirm the profile before preparing a share package.')
         self.check_capacity()
         source=self._source(profile)
         if description is not None: description=tagline(description)
         identifier=uuid.uuid4().hex
         directory=self.data/('export-'+identifier)
-        with tempfile.TemporaryDirectory(prefix='publish-',dir=self.data) as temp:
+        with tempfile.TemporaryDirectory(prefix='publish-',dir=self.data,ignore_cleanup_errors=True) as temp:
             staging=Path(temp)/'source'; staging.mkdir()
             for f,sub in shareable_files(source):
                 dest=staging/sub;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(f,dest)
@@ -432,8 +473,8 @@ class Drops:
                 if description: manifest['description']=description;changed=True
                 elif not str(manifest.get('description') or '').strip(): manifest['description']=DEFAULT_DESCRIPTION;changed=True
                 if not str(manifest.get('author') or '').strip():
-                    # Recipients should see who shared the bot: use the GitHub account when signed in.
-                    login=self.github_status().get('login')
+                    # Recipients should see who shared the bot: the GitHub account or organization it is shared under.
+                    login=self._account(owner,fresh=True)
                     if login: manifest['author']='@'+login;changed=True
                 if changed: write_json(staging/'distribution.yaml',manifest)
             # The profile's settings stay home. Only the model choice travels, as plain names.
@@ -449,19 +490,18 @@ class Drops:
                 raise
         try:
             from .card import render_card, render_story
-            from .landing import render_landing
+            from .landing import render_landing, render_readme
             credit=credit is not False
             render_card(info,directory/'drop-card.png',credit=credit)
             render_story(info,directory/'drop-story.png',credit=credit)
-            (directory/'index.html').write_text(render_landing(info,credit=credit))
+            write_text(directory/'index.html',render_landing(info,credit=credit))
             write_json(self.data/('export-'+identifier+'.options.json'),{'credit':credit})
-            (directory/'.gitignore').write_text('.env\n.env.*\nauth.json\nmemories/\nsessions/\nlogs/\nstate.db*\n')
-            requirements='\n'.join('- '+e['name']+(' (required)' if e['required'] else ' (optional)') for e in info['env_requires']) or 'Choose your own model provider and configure its key in Hermes.'
-            (directory/'README.md').write_text('# '+info['name']+'\n\n'+info['description']+'\n\n![Drop card](drop-card.png)\n\n## Requirements\n\n'+requirements+'\n\n## Adopt in Hermes\n\nOpen Bot Drops in your Hermes dashboard and paste this repository URL, or send the URL to your Hermes chat and ask to preview the bot. Advanced: `/drop preview <repository URL>`. Review the exact commit before adopting.\n\nProfiles are not a security sandbox. Only adopt bots from sources you trust.\n')
-            (directory/'share.txt').write_text(f"Meet {info['name']}: {info['description']}\nPreview and adopt this agent in your own Hermes. Bring your own model access.\nLink: <paste your repository link here>\n")
+            write_text(directory/'.gitignore','.env\n.env.*\nauth.json\nmemories/\nsessions/\nlogs/\nstate.db*\n')
+            write_text(directory/'README.md',render_readme(info))
+            write_text(directory/'share.txt',f"Meet {info['name']}: {info['description']}\nPreview and adopt this agent in your own Hermes. Bring your own model access.\nLink: <paste your repository link here>\n")
             secret_scan(directory,known)  # the finished package, against this profile's own stored keys
             return {'id':'export-'+identifier,'name':info['name'],'directory':str(directory),
-                    'files':[str(p.relative_to(directory)) for p in tree_files(directory)],'warnings':info['warnings'],
+                    'files':[rel_path(p,directory) for p in tree_files(directory)],'warnings':info['warnings'],
                     'message':'Share package prepared locally. Nothing has been posted or pushed.'}
         except BaseException:
             shutil.rmtree(directory,ignore_errors=True)
