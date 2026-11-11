@@ -4,7 +4,7 @@ Share a Hermes bot as a link and a card. Anyone with Hermes can preview it and a
 
 ![Three steps: share your bot, get a link and a card, anyone makes it theirs](assets/how-it-works.png)
 
-Made by BrainArts · [@chrisbrainarts on X](https://x.com/chrisbrainarts) · MIT licensed
+Published by [BrainArts Lab](https://github.com/brainarts-lab) · [@chrisbrainarts on X](https://x.com/chrisbrainarts) · MIT licensed
 
 ## Try it
 
