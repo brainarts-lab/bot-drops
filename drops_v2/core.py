@@ -11,7 +11,7 @@ import time
 import uuid
 
 from .safety import (DropError, MAX_BYTES, MAX_FILE, MAX_FILES, NAME, PRIVATE, WINDOWS, base_env, clean_text, clone_public,
-                     digest, name_ok, profile_credentials, read_data, rel_path, remove_tree, run_bounded, secret_scan,
+                     digest, name_ok, read_data, rel_path, remove_tree, run_bounded, secret_scan,
                      tree_files, write_text)
 
 STANDARD = {'SOUL.md','config.yaml','mcp.json','skills','cron','distribution.yaml'}
@@ -22,6 +22,60 @@ PREVIEW_TTL = 86400          # a preview can be adopted for 24 hours
 EXPORT_TTL = 7 * 86400       # share packages are local copies; old ones are removed
 TAGLINE = 140
 DEFAULT_DESCRIPTION = 'A shared Hermes bot'
+JOB_TEXT = 20000             # longest task text a scheduled task may carry
+SCHEDULE_KEYS = ('kind','expr','minutes','run_at','display')
+SCHEDULE_KINDS = {'cron','interval','once'}
+# Job fields that say where a task reports to or what else it runs. They never travel.
+JOB_LOCAL = ('origin','deliver','failure_deliver','base_url','provider','model','script','no_agent','interpreter',
+             'workdir','monitor_script','monitor_url','context_from','enabled_toolsets','attach_to_session')
+PAUSED_REASON = 'Came with a shared bot. Read the task, then turn it on.'
+
+
+def schedule_text(schedule):
+    if not isinstance(schedule,dict): return 'Not specified'
+    if schedule.get('display'): return str(schedule['display'])
+    if schedule.get('kind')=='interval' and schedule.get('minutes'): return 'every '+str(schedule['minutes'])+'m'
+    return str(schedule.get('expr') or schedule.get('run_at') or 'Not specified')
+
+
+def portable_jobs(data):
+    """Scheduled tasks as they may travel with a bot: id, name, task text, schedule and skill names, paused.
+    Everything else in a Hermes job record stays home: the chat and user it was created from, delivery
+    targets, scripts, working folders, model endpoints, run history and error text.
+    Returns (tasks, number of tasks left out because only a script would run, names of removed fields)."""
+    jobs=data.get('jobs',[]) if isinstance(data,dict) else data
+    if not isinstance(jobs,list): raise DropError('Cron jobs must be a list or an object containing jobs.')
+    kept=[];left=0;removed=set()
+    for job in jobs:
+        if not isinstance(job,dict): raise DropError('Invalid cron job.')
+        removed.update(k for k in JOB_LOCAL if job.get(k) not in (None,'',[],{},False))
+        prompt=job.get('prompt')
+        prompt=clean_text(('' if prompt is None else str(prompt)).replace('\r\n','\n').replace('\r','\n'),JOB_TEXT)
+        raw=job.get('skills')
+        if raw is None: raw=[job.get('skill')] if job.get('skill') else []
+        elif isinstance(raw,str): raw=[raw]
+        if not isinstance(raw,list): raise DropError('Invalid skills in a scheduled task.')
+        skills=[]
+        for item in raw:
+            item=clean_text(str(item or '').strip(),120)
+            if item and item not in skills: skills.append(item)
+        schedule=job.get('schedule')
+        if not isinstance(schedule,dict) or schedule.get('kind') not in SCHEDULE_KINDS:
+            raise DropError('A scheduled task has a schedule Bot Drops cannot read.')
+        schedule={k:clean_text(schedule[k],200) if isinstance(schedule[k],str) else schedule[k]
+                  for k in SCHEDULE_KEYS if k in schedule and type(schedule[k]) in (str,int)}
+        if not prompt.strip() and not skills:
+            left+=1;continue  # only a script would run, and scripts stay home
+        identifier=str(job.get('id') or '')
+        if not re.fullmatch(r'[A-Za-z0-9_-]{1,64}',identifier): identifier=uuid.uuid4().hex[:12]
+        name=clean_text(' '.join(str(job.get('name') or '').split())[:120],120) or ' '.join(prompt.split())[:50] or skills[0]
+        kept.append({'id':identifier,'name':name,'prompt':prompt,'schedule':schedule,'skills':skills,
+                     'enabled':False,'state':'paused','paused_reason':PAUSED_REASON})
+    return kept,left,sorted(removed)
+
+
+def task_lines(jobs):
+    return [{'name':j['name'],'schedule':schedule_text(j['schedule']),'prompt':j['prompt'],'skills':j['skills']} for j in jobs]
 
 
 def write_json(path, value):
@@ -86,15 +140,13 @@ def inspect_tree(root):
             text=file.read_text('utf-8')
             desc=next((line.split(':',1)[1].strip().strip('"') for line in text.splitlines()[:25] if line.startswith('description:')), '')
             skills.append({'name':file.parent.name,'description':clean_text(desc,600)})
-    cron=read_data(root/'cron/jobs.json',[])
-    jobs=cron.get('jobs',[]) if isinstance(cron,dict) else cron
-    if not isinstance(jobs,list): raise DropError('Cron jobs must be a list or an object containing jobs.')
-    cron_info=[]
-    for job in jobs:
-        if not isinstance(job,dict): raise DropError('Invalid cron job.')
-        cron_info.append({'name':clean_text(job.get('name',job.get('id','Scheduled task')),120),
-                          'schedule':json.dumps(job.get('schedule','Not specified'),ensure_ascii=False)[:400]})
-    if jobs: warnings.append({'kind':'schedule','title':'Scheduled tasks','detail':f'{len(jobs)} task(s)', 'action':'Imported paused; review before enabling'})
+    jobs,left,removed=portable_jobs(read_data(root/'cron/jobs.json',[]))
+    cron_info=task_lines(jobs)
+    if jobs: warnings.append({'kind':'schedule','title':'Scheduled tasks','detail':f'{len(jobs)} task(s). Read each task under Scheduled tasks.',
+                              'action':'Imported paused with only their name, task text, schedule and skills'})
+    if removed: warnings.append({'kind':'schedule','title':'Task settings from the sharer','detail':', '.join(removed),
+                                 'action':'Removed: where tasks report to, scripts, folders and endpoints are never imported'})
+    if left: warnings.append({'kind':'code','title':'Tasks that only run a script','detail':f'{left} task(s)','action':'Not imported'})
     omitted=[]
     for file in files:
         rel=file.relative_to(root)
@@ -140,12 +192,10 @@ def safe_payload(source,target):
         if rel.as_posix()=='SOUL.md' or (rel.parts[0]=='skills' and file.suffix.lower() in {'.md','.txt'} and not any(p.startswith('.') for p in rel.parts)):
             dest=target/rel;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(file,dest)
         if rel.as_posix()=='cron/jobs.json':
-            data=read_data(file,[])
-            jobs=data.get('jobs',[]) if isinstance(data,dict) else data
-            for job in jobs:
-                job['enabled']=False;job['state']='paused'
-            (target/'cron').mkdir(exist_ok=True)
-            write_json(target/'cron/jobs.json',data)
+            jobs,_,_=portable_jobs(read_data(file,[]))
+            if jobs:
+                (target/'cron').mkdir(exist_ok=True)
+                write_json(target/'cron/jobs.json',{'jobs':jobs})
     secret_scan(target)
     return info
 
@@ -162,6 +212,26 @@ def bundled_skill_dirs(profile):
     skills=profile/'skills'
     if not skills.is_dir() or skills.is_symlink(): return set()
     return {f.parent for f in skills.rglob('SKILL.md') if f.parent.name in names and not f.is_symlink()}
+
+
+def hub_skill_dirs(profile):
+    """Skill folders installed from the Skills Hub (skills/.hub/lock.json). They belong to their authors;
+    whoever adopts the bot installs them from the hub, so they are not republished."""
+    skills=profile/'skills'
+    lock=skills/'.hub'/'lock.json'
+    try:
+        if not lock.is_file() or lock.is_symlink() or lock.stat().st_size>MAX_FILE: return set()
+        installed=json.loads(lock.read_text('utf-8')).get('installed')
+    except (OSError,ValueError,AttributeError):
+        return set()
+    if not isinstance(installed,dict): return set()
+    dirs=set()
+    for name,entry in installed.items():
+        path=entry.get('install_path') if isinstance(entry,dict) else None
+        path=path if isinstance(path,str) and path else str(name)
+        if '..' in Path(path).parts or Path(path).is_absolute(): continue
+        dirs.add(skills/path)
+    return dirs
 
 
 def _visible_files(root):
@@ -183,7 +253,7 @@ def shareable_files(source):
     """(file, relative path) of everything a share package takes from a profile.
     Skills: only the author's own skill folders, not what Hermes seeded and not loose category notes.
     Settings and connections (config.yaml, mcp.json) are never taken; see model_choice."""
-    bundled=bundled_skill_dirs(source)
+    excluded=bundled_skill_dirs(source)|hub_skill_dirs(source)
     count=total=0
     for rel in ('SOUL.md','distribution.yaml','skills','cron/jobs.json'):
         p=source/rel
@@ -191,7 +261,7 @@ def shareable_files(source):
         if p.is_symlink(): raise DropError('Symlink in shareable profile content: '+rel)
         if p.is_dir():
             files=_visible_files(p)
-            own={f.parent for f in files if f.name=='SKILL.md' and f.parent not in bundled}
+            own={f.parent for f in files if f.name=='SKILL.md' and not any(e==f.parent or e in f.parents for e in excluded)}
             chosen=[f for f in files if any(d==f.parent or d in f.parents for d in own)]
         else:
             chosen=[p]
@@ -445,7 +515,7 @@ class Drops:
         return owner if owner and owner in _LOGIN['owners'] else _LOGIN['login']
 
     def share_preview(self,profile,description=None,owner=None):
-        """What the card of this profile will say. Reads names and counts only; packages nothing."""
+        """What the card and the share form show: names, counts and task texts. Packages nothing."""
         source=self._source(profile)
         manifest={}
         path=source/'distribution.yaml'
@@ -461,8 +531,16 @@ class Drops:
             author='@'+login if login else ''
         env=[{'name':str(e.get('name')),'required':e.get('required',True) is not False}
              for e in manifest.get('env_requires') or [] if isinstance(e,dict) and re.fullmatch(r'[A-Z][A-Z0-9_]{1,79}',str(e.get('name','')))]
-        skills=[{'name':f.parent.name} for f,sub in shareable_files(source) if f.name=='SKILL.md' and sub.parts[0]=='skills']
-        return {'name':name,'description':text or DEFAULT_DESCRIPTION,'saved_description':saved,'author':author,'env_requires':env,'skills':skills}
+        files=list(shareable_files(source))
+        skills=[{'name':f.parent.name} for f,sub in files if f.name=='SKILL.md' and sub.parts[0]=='skills']
+        tasks=[];task_problem=''
+        for f,sub in files:
+            if sub.as_posix()=='cron/jobs.json':
+                try: tasks=task_lines(portable_jobs(read_data(f,[]))[0])
+                except DropError as exc: task_problem=str(exc)
+        hub=sorted({d.name for d in hub_skill_dirs(source) if (d/'SKILL.md').is_file()})
+        return {'name':name,'description':text or DEFAULT_DESCRIPTION,'saved_description':saved,'author':author,'env_requires':env,'skills':skills,
+                'cron':tasks,'cron_problem':task_problem,'hub_skills':hub}
 
     def publish(self,profile,*,confirmed=False,credit=True,description=None,owner=None):
         if confirmed is not True: raise DropError('Review and confirm the profile before preparing a share package.')
@@ -474,7 +552,13 @@ class Drops:
         with tempfile.TemporaryDirectory(prefix='publish-',dir=self.data,ignore_cleanup_errors=True) as temp:
             staging=Path(temp)/'source'; staging.mkdir()
             for f,sub in shareable_files(source):
-                dest=staging/sub;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(f,dest)
+                dest=staging/sub;dest.parent.mkdir(parents=True,exist_ok=True)
+                if sub.as_posix()=='cron/jobs.json':
+                    # Never the live job file: only what portable_jobs lets travel.
+                    jobs,_,_=portable_jobs(read_data(f,[]))
+                    if jobs: write_json(dest,{'jobs':jobs})
+                    continue
+                shutil.copyfile(f,dest)
             if not (staging/'distribution.yaml').exists():
                 write_json(staging/'distribution.yaml',{'name':profile if profile!='default' else 'my-agent',
                            'description':DEFAULT_DESCRIPTION,'version':'1.0.0','author':'','env_requires':[]})
@@ -493,8 +577,8 @@ class Drops:
             except (DropError,OSError): choice={}
             if choice: write_json(staging/'config.yaml',choice)
             # A key pasted into the personality, a skill or a task blocks sharing; it never silently disappears.
-            known=profile_credentials(source)
-            secret_scan(staging,known)
+            # Hermes' own credential stores (.env, auth.json) are never opened: the scan looks for key patterns.
+            secret_scan(staging)
             try: info=safe_payload(staging,directory)
             except BaseException:
                 shutil.rmtree(directory,ignore_errors=True)
@@ -510,7 +594,7 @@ class Drops:
             write_text(directory/'.gitignore','.env\n.env.*\nauth.json\nmemories/\nsessions/\nlogs/\nstate.db*\n')
             write_text(directory/'README.md',render_readme(info))
             write_text(directory/'share.txt',f"Meet {info['name']}: {info['description']}\nPreview and adopt this agent in your own Hermes. Bring your own model access.\nLink: <paste your repository link here>\n")
-            secret_scan(directory,known)  # the finished package, against this profile's own stored keys
+            secret_scan(directory)  # the finished package, card and page included
             return {'id':'export-'+identifier,'name':info['name'],'directory':str(directory),
                     'files':[rel_path(p,directory) for p in tree_files(directory)],'warnings':info['warnings'],
                     'message':'Share package prepared locally. Nothing has been posted or pushed.'}

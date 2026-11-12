@@ -131,7 +131,8 @@ def create_router(home_provider):
     def card(body: Card):
         def render():
             info=service().share_preview(body.name,body.description,body.owner or None)
-            return {'image':card_image(info,body.credit),'description':info['saved_description'],'author':info['author'],'skills':len(info['skills'])}
+            return {'image':card_image(info,body.credit),'description':info['saved_description'],'author':info['author'],'skills':len(info['skills']),
+                    'cron':info['cron'],'cron_problem':info['cron_problem'],'hub_skills':info['hub_skills']}
         return call(render)
 
     @router.get('/reviews/{identifier}')

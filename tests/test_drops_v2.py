@@ -10,7 +10,8 @@ import time
 import unittest
 from unittest.mock import patch
 
-from drops_v2.core import Drops, inspect_tree, safe_payload, write_json
+from drops_v2.commands import preview_text
+from drops_v2.core import Drops, PAUSED_REASON, inspect_tree, safe_payload, write_json
 from drops_v2.safety import DropError, digest, read_data, remove_tree, run_bounded, source_url, tree_files
 
 
@@ -68,7 +69,7 @@ class DropsV2Tests(unittest.TestCase):
     def test_risks_visible_and_inactive_in_payload(self):
         write_json(self.source/'config.yaml',{'model':{'provider':'custom','base_url':'https://example.com/v1'},'terminal':{'backend':'local'},'future_setting':True})
         write_json(self.source/'mcp.json',{'servers':{'evil':{'command':'curl','args':['https://example.com']}}})
-        (self.source/'cron').mkdir();write_json(self.source/'cron/jobs.json',{'jobs':[{'id':'job','name':'Mail','schedule':{'kind':'cron','expr':'0 8 * * *'},'enabled':True}]})
+        (self.source/'cron').mkdir();write_json(self.source/'cron/jobs.json',{'jobs':[{'id':'job','name':'Mail','prompt':'Check my mail.','schedule':{'kind':'cron','expr':'0 8 * * *'},'enabled':True}]})
         manifest=read_data(self.source/'distribution.yaml');manifest.update(distribution_owned=['plugins'],future=True);write_json(self.source/'distribution.yaml',manifest)
         (self.source/'skills'/'writer'/'run.py').write_text('raise RuntimeError("never run")')
         info=self.record(); payload=self.drops.entry(info['id'])/'payload'
@@ -181,7 +182,7 @@ class DropsV2Tests(unittest.TestCase):
         self.assertEqual(read_data(package/'config.yaml')['model'],{'provider':'openai','default':'gpt-4.1-mini'})
         self.assertFalse((package/'mcp.json').exists())
         for file in tree_files(package):self.assertNotIn(token.encode(),file.read_bytes())
-        for leaked in (token,'shortkey9'):
+        for leaked in (token,):
             (profile/'SOUL.md').write_text('Use '+leaked+' for everything.')
             with self.subTest(leaked=leaked[:4]),self.assertRaises(DropError) as caught:self.drops.publish('author',confirmed=True)
             self.assertNotIn(leaked,str(caught.exception));self.assertIn('SOUL.md',str(caught.exception))
@@ -311,13 +312,25 @@ class DropsV2Tests(unittest.TestCase):
         drops=Drops(home,hermes='/test/hermes')
         self.assertEqual((drops.data/'marker').read_text(),'kept');self.assertFalse(old.exists())
 
-    def test_exact_export_credential_canary_blocks(self):
+    def test_hermes_credential_stores_are_never_opened(self):
+        # Catalog rule: a plugin does not read .env or auth.json, not even to scan for leaks (review of 2b2d9f7e).
         profile=self.drops.profiles/'author-bot';shutil.copytree(self.source,profile)
-        secret='unusual!opaque@canary#value'
-        (profile/'.env').write_text('CUSTOM_API_KEY='+secret)
-        (profile/'skills/writer/SKILL.md').write_text('Accidentally pasted '+secret)
+        for name in ('.env','auth.json'):(profile/name).write_text('OPENAI_API_KEY=sk-proj-'+'Ab1'*12);(profile/name).chmod(0)
+        opened=[]
+        real_open=Path.open
+        def watch(path,*a,**k):
+            if path.name in ('.env','auth.json'):opened.append(path.name)
+            return real_open(path,*a,**k)
+        with patch.object(Path,'open',watch):
+            package=self.drops.publish('author-bot',confirmed=True)
+            self.drops.share_preview('author-bot')
+        self.assertEqual(opened,[])
+        self.assertFalse(any(f in ('.env','auth.json') for f in package['files']))
+        # A key in shared text is still caught by its shape, and its value never reaches the message.
+        key='sk-proj-'+'Zx9'*12
+        (profile/'skills/writer/SKILL.md').write_text('Accidentally pasted '+key)
         with self.assertRaises(DropError) as caught:self.drops.publish('author-bot',confirmed=True)
-        self.assertNotIn(secret,str(caught.exception));self.assertIn('SKILL.md',str(caught.exception))
+        self.assertNotIn(key,str(caught.exception));self.assertIn('SKILL.md',str(caught.exception))
 
     def test_timeout_kills_children(self):
         pidfile=self.base/'pid'
@@ -369,6 +382,65 @@ class DropsV2Tests(unittest.TestCase):
         info=self.drops._record(out,'local','local')
         self.assertEqual(info['description'],'Plant deine Woche – übersichtlich 🚀')
         self.assertEqual((self.drops.entry(info['id'])/'payload'/'SOUL.md').read_bytes().decode('utf-8'),soul)
+
+    LIVE_JOB={'id':'a1b2c3','name':'Morning brief','prompt':'Summarise the news about Hermes.','skills':['writer'],'skill':'writer',
+              'schedule':{'kind':'cron','expr':'0 8 * * *','display':'0 8 * * *'},'schedule_display':'0 8 * * *',
+              'enabled':True,'state':'scheduled','deliver':'telegram:-100987654321','failure_deliver':'discord:4455',
+              'origin':{'platform':'telegram','chat_id':'-100987654321','user_id':'77001122','thread_id':'9'},
+              'script':'/Users/someone/bin/fetch.sh','workdir':'/Users/someone/projects/secret-plan','base_url':'https://llm.internal.example/v1',
+              'model':'private-model','provider':'custom','last_error':'401 for someone@example.com','last_run_at':'2026-11-11T08:00:00+01:00',
+              'repeat':{'times':None,'completed':41},'monitor_url':'https://status.internal.example'}
+    PRIVATE_BITS=('-100987654321','77001122','4455','/Users/someone','secret-plan','llm.internal.example','private-model',
+                  'someone@example.com','status.internal.example','fetch.sh')
+
+    def test_scheduled_tasks_travel_without_where_they_report_to(self):
+        # Review of 2b2d9f7e: the live cron/jobs.json went public with chat ids, delivery targets, scripts and folders.
+        profile=self.author_profile();(profile/'cron').mkdir()
+        script_only={'id':'s1','name':'Backup','prompt':'','script':'backup.sh','no_agent':True,'schedule':{'kind':'interval','minutes':60}}
+        write_json(profile/'cron/jobs.json',{'jobs':[self.LIVE_JOB,script_only],'updated_at':'2026-11-11'})
+        preview=self.drops.share_preview('author')
+        self.assertEqual(preview['cron'],[{'name':'Morning brief','schedule':'0 8 * * *','prompt':'Summarise the news about Hermes.','skills':['writer']}])
+        package=Path(self.drops.publish('author',confirmed=True)['directory'])
+        jobs=read_data(package/'cron/jobs.json')
+        self.assertEqual(jobs,{'jobs':[{'id':'a1b2c3','name':'Morning brief','prompt':'Summarise the news about Hermes.',
+                                        'schedule':{'kind':'cron','expr':'0 8 * * *','display':'0 8 * * *'},'skills':['writer'],
+                                        'enabled':False,'state':'paused','paused_reason':PAUSED_REASON}]})
+        for file in tree_files(package):
+            text=file.read_bytes().decode('utf-8','ignore')
+            for bit in self.PRIVATE_BITS:self.assertNotIn(bit,text,file.name)
+
+    def test_adopt_preview_shows_each_task_and_strips_what_it_would_reach(self):
+        # Review of 2b2d9f7e: the adopt preview showed only name and schedule.
+        (self.source/'cron').mkdir();write_json(self.source/'cron/jobs.json',{'jobs':[self.LIVE_JOB,{'id':'s1','script':'x.sh','schedule':{'kind':'interval','minutes':5}}]})
+        info=self.record();payload=self.drops.entry(info['id'])/'payload'
+        self.assertEqual(info['cron'][0]['prompt'],'Summarise the news about Hermes.')
+        titles={w['title']:w for w in info['warnings']}
+        removed=titles['Task settings from the sharer']['detail']
+        for field in ('deliver','origin','script','workdir','base_url'):self.assertIn(field,removed)
+        self.assertEqual(titles['Tasks that only run a script']['detail'],'1 task(s)')
+        job,=read_data(payload/'cron/jobs.json')['jobs']
+        self.assertEqual(set(job),{'id','name','prompt','schedule','skills','enabled','state','paused_reason'})
+        self.assertFalse(job['enabled'])
+        text=preview_text(info)
+        self.assertIn('Task: Summarise the news about Hermes.',text)
+        for bit in self.PRIVATE_BITS:self.assertNotIn(bit,(payload/'cron/jobs.json').read_text())
+
+    def test_unreadable_schedule_stops_the_preview(self):
+        (self.source/'cron').mkdir();write_json(self.source/'cron/jobs.json',{'jobs':[{'id':'x','prompt':'Hi','schedule':'whenever'}]})
+        with self.assertRaises(DropError):self.record()
+
+    def test_skills_from_the_skills_hub_are_not_republished(self):
+        profile=self.author_profile()
+        (profile/'skills/research/hub-skill').mkdir(parents=True);(profile/'skills/research/hub-skill/SKILL.md').write_text('---\nname: hub-skill\n---\nSomeone else wrote this.')
+        (profile/'skills/.hub').mkdir()
+        write_json(profile/'skills/.hub/lock.json',{'version':1,'installed':{'hub-skill':{'source':'clawhub','install_path':'research/hub-skill'},
+                                                                              'escape':{'install_path':'../../SOUL.md'}}})
+        package=self.drops.publish('author',confirmed=True)
+        self.assertIn('skills/mine/SKILL.md',package['files'])
+        self.assertFalse(any('hub-skill' in f for f in package['files']))
+        self.assertEqual(self.drops.share_preview('author')['hub_skills'],['hub-skill'])
+        (profile/'skills/.hub/lock.json').write_text('{not json')  # a broken lock file never blocks sharing
+        self.assertIn('skills/research/hub-skill/SKILL.md',self.drops.publish('author',confirmed=True)['files'])
 
     def test_folders_with_read_only_files_can_be_cleared(self):
         folder=self.base/'stale';(folder/'objects').mkdir(parents=True)

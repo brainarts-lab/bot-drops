@@ -4,7 +4,7 @@ Share a Hermes bot as a link and a card. Anyone with Hermes can preview it and a
 
 ![Three steps: share your bot, get a link and a card, anyone makes it theirs](assets/how-it-works.png)
 
-Published by [BrainArts Lab](https://github.com/brainarts-lab) · [@chrisbrainarts on X](https://x.com/chrisbrainarts) · MIT licensed
+Made by BrainArts · [@chrisbrainarts on X](https://x.com/chrisbrainarts) · MIT licensed
 
 ## Try it
 
@@ -14,13 +14,13 @@ Published by [BrainArts Lab](https://github.com/brainarts-lab) · [@chrisbrainar
 
 ## What it does
 
-**Adopt a bot.** Open a bot link, or paste it into Bot Drops. You see the bot's card, what it needs and what was left out, before anything is installed. Adopting always creates a **new** Hermes profile through Hermes' own `hermes profile install`, pinned to the exact commit you reviewed. Existing profiles, including `default`, are never changed. The adopted bot runs with your own model access; the sharer's keys and logins never travel with it.
+**Adopt a bot.** Open a bot link, or paste it into Bot Drops. You see the bot's card, what it needs, the full text of each scheduled task and what was left out, before anything is installed. Scheduled tasks arrive paused, with only their name, task text, schedule and skills. Adopting always creates a **new** Hermes profile through Hermes' own `hermes profile install`, pinned to the exact commit you reviewed. Existing profiles, including `default`, are never changed. The adopted bot runs with your own model access; the sharer's keys and logins never travel with it.
 
 | Find a bot | Look before you adopt |
 | --- | --- |
 | ![Start screen with a link field and the example bot card](assets/screens/01-find.png) | ![Preview of a bot with its card, needs, skills and the adopt panel](assets/screens/02-preview.png) |
 
-**Share your bot.** Pick one of your bots, say in one line what it does and watch its card build itself. *Share bot* packages the personality (`SOUL.md`) and your own text skills, renders a link card (1200 × 630) and a story image (1080 × 1920), creates a new public GitHub repository through your own `gh` login, uploads the package and turns on GitHub Pages. You get one link, with share buttons for X, LinkedIn, Reddit and Bluesky. Link previews show the card automatically. *Update a drop* publishes a new version to a drop you shared earlier.
+**Share your bot.** Pick one of your bots, say in one line what it does and watch its card build itself. *Share bot* packages the personality (`SOUL.md`), your own text skills and any scheduled tasks (name, task text, schedule and skills only, shown to you before sharing), renders a link card (1200 × 630) and a story image (1080 × 1920), creates a new public GitHub repository through your own `gh` login, uploads the package and turns on GitHub Pages. You get one link, with share buttons for X, LinkedIn, Reddit and Bluesky. Link previews show the card automatically. *Update a drop* publishes a new version to a drop you shared earlier.
 
 | Share | Live |
 | --- | --- |
@@ -28,7 +28,7 @@ Published by [BrainArts Lab](https://github.com/brainarts-lab) · [@chrisbrainar
 
 **The bot page.** Every shared bot gets a small page on GitHub Pages. *Adopt in my Hermes* opens Hermes Desktop straight into the preview (`hermes://drops/import?url=…`). On a phone the page offers a message for your Hermes chat instead.
 
-**Never shared:** keys and logins (`.env`, `auth.json`), settings (`config.yaml` apart from the name of a built-in model), memory, chats and sessions, plugins, MCP servers, custom endpoints, skills that ship with Hermes, and skill programs or attachments. A key pasted into the personality or a skill blocks sharing.
+**Never shared:** keys and logins (`.env`, `auth.json`), settings (`config.yaml` apart from the name of a built-in model), memory, chats and sessions, plugins, MCP servers, custom endpoints, skills that ship with Hermes or come from the Skills Hub, and skill programs or attachments. From scheduled tasks, everything except name, task text, schedule and skills stays home: the chat and user a task came from, where it reports to, scripts, working folders, model settings, run history and errors. Something that looks like a key in the personality, a skill or a task text blocks sharing.
 
 ## Install
 
@@ -58,7 +58,7 @@ So you can decide before installing:
 
 - **Network:** a preview clones a *public* GitHub/GitLab repository (HTTPS only, size, time and file limits, no symlinks or submodules). Publishing calls GitHub through your `gh` login, and only when you press *Share bot* or *Update drop*.
 - **Programs it runs:** `git`, `gh` and `hermes profile install`, always as fixed argument lists, never through a shell.
-- **Files it reads:** the profile you choose to share, and that profile's `.env` and `auth.json` only to make sure none of their values end up in the package. It writes to its own folder `plugin-data/bot-drops` and creates new profiles only when you adopt. Previews that were not adopted are removed after 24 hours, local share packages after 7 days.
+- **Files it reads:** from the profile you choose to share, only `SOUL.md`, `distribution.yaml`, your skills with Hermes' lists of bundled and Skills Hub skills, the scheduled tasks and the model name in `config.yaml`. It never opens Hermes' credential stores (`.env`, `auth.json`); instead every package is checked for key patterns, and a match stops the share. It writes to its own folder `plugin-data/bot-drops` and creates new profiles only when you adopt. Previews that were not adopted are removed after 24 hours, local share packages after 7 days.
 - **No telemetry.** Shared pages and cards carry a small "Made with Bot Drops · by BrainArts" line linking to [@chrisbrainarts](https://x.com/chrisbrainarts). It is a plain link without tracking, and you can turn it off before sharing.
 
 Profiles are not a security sandbox: a bot's personality and skills guide your agent. Only adopt bots from people you trust.

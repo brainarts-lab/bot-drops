@@ -17,6 +17,7 @@ Send a bot link and I show you what is inside:
 You can also just ask: "Show me this bot: <link>".
 To share with one click and get a link and a card, open Bot Drops in Hermes Desktop or the dashboard.
 Nothing is installed, posted or run by a preview.'''
+TASK_CHARS=1500
 
 
 def preview_text(info):
@@ -26,7 +27,10 @@ def preview_text(info):
     keys=', '.join(e['name']+('' if e['required'] else ' (optional)') for e in info['env_requires'])
     lines.append('Needs: '+(keys or 'your own model access'))
     if info['skills']: lines.append('Skills: '+', '.join(s['name'] for s in info['skills']))
-    for job in info['cron']: lines.append('Paused task: '+job['name']+' · '+job['schedule'])
+    for job in info['cron']:
+        lines.append('Paused task: '+job['name']+' · '+job['schedule']+(' · skills: '+', '.join(job['skills']) if job.get('skills') else ''))
+        text=job.get('prompt') or ''
+        if text: lines.append('  Task: '+(text if len(text)<=TASK_CHARS else text[:TASK_CHARS]+'… (shortened, read it in full in Bot Drops before adopting)'))
     if info['warnings']:
         kinds=sorted({w['title'] for w in info['warnings']})
         count=len(info['warnings'])
@@ -55,7 +59,7 @@ def handle(ctx,home,raw_args):
             result=drops.install(info['id'],name,confirmed=True)
             return f"Done, {result['installed_profile']} is yours. Add your own model key in Hermes, then say hi to it. No message was sent and no model has run."
         if len(args)==2 and args[0]=='publish':
-            choice=ctx.ask_choice(f'Prepare a share package from {args[1]}? It contains the personality and your own skills. Keys, memory and chats stay out. Nothing is posted.',
+            choice=ctx.ask_choice(f'Prepare a share package from {args[1]}? It contains the personality, your own skills and any scheduled tasks (name, task text and schedule only, paused). Keys, memory, chats and where tasks report to stay out. Nothing is posted.',
                                   [{'value':'publish','label':'Prepare share package'},{'value':'cancel','label':'Cancel'}])
             if choice!='publish':return 'Nothing was prepared. If this chat cannot show buttons, share the bot in Bot Drops in Hermes Desktop or the dashboard.'
             result=drops.publish(args[1],confirmed=True)

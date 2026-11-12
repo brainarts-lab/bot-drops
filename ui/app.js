@@ -91,7 +91,7 @@ function createDropsApp(React, bridge) {
       const timer = setTimeout(() => {
         bridge.api('/card', {name: profile, credit, ...(sharedAs ? {owner: sharedAs} : {}), ...(typed === null ? {} : {description: typed})}).then(r => {
           if (!live || !mounted.current) return;
-          setCards(c => ({...c, share: {profile, src: r.image}}));
+          setCards(c => ({...c, share: {profile, src: r.image, cron: r.cron || [], cronProblem: r.cron_problem || '', hub: r.hub_skills || []}}));
           if (typed === null) setTagline(r.description || '');
         }).catch(() => {});
       }, typed === null ? 0 : 350);
@@ -169,6 +169,9 @@ function createDropsApp(React, bridge) {
     const more = (label, ...children) => h('details', null, h('summary', null, label), ...children);
     const notes = (items, label) => items?.length ? h('details', {className: 'bd-notes'}, h('summary', null, label(items.length)),
       items.map((w, i) => h('div', {key: i, className: 'bd-note'}, h('b', null, w.title), h('p', null, w.detail), h('small', null, w.action)))) : null;
+    const tasks = (items, label) => items?.length ? h('div', {className: 'bd-tasks'}, h('b', null, label),
+      items.map((j, i) => h('div', {key: i, className: 'bd-task'}, h('p', null, h('strong', null, j.name), ' · '+j.schedule+(j.skills?.length ? ' · skills: '+j.skills.join(', ') : '')),
+        j.prompt ? h('pre', null, j.prompt) : h('p', null, h('small', null, 'Runs its skills, no task text'))))) : null;
     const cardView = (src, alt, wait, caption) => h('figure', {className: 'bd-card'},
       src ? h('img', {src, alt, width: 1200, height: 630}) : h('div', {className: 'bd-card-wait'}, wait),
       caption && h('figcaption', null, caption));
@@ -226,13 +229,13 @@ function createDropsApp(React, bridge) {
             author && h('dt', null, 'Shared by'), author && h('dd', null, h('span', {className: 'bd-chip'}, author)),
             h('dt', null, 'Needs'), h('dd', null, review.env_requires.length ? review.env_requires.map(e => h('span', {key: e.name, className: 'bd-chip', title: e.description}, e.name+(e.required ? '' : ' (optional)'))) : h('span', {className: 'bd-chip'}, 'Your own model access')),
             review.skills.length > 0 && h('dt', null, 'Skills'), review.skills.length > 0 && h('dd', null, review.skills.map(s => h('span', {key: s.name, className: 'bd-chip', title: s.description || ''}, s.name)))),
+          tasks(review.cron, review.cron.length === 1 ? 'Scheduled task, arrives paused' : review.cron.length+' scheduled tasks, arrive paused'),
           notes(review.warnings, n => n === 1 ? '1 thing was left out for safety' : n+' things were left out for safety'),
           more('Read its personality and skills',
             instructions ? instructions.map(f => h('details', {key: f.path}, h('summary', null, f.path), h('pre', null, f.text)))
               : button('Show the files', () => work('Loading…', async () => {const data = await bridge.api('/reviews/'+review.id+'/instructions'); if (mounted.current) setInstructions(data.files);}), !!busy, 'ghost')),
           more('More details',
             h('p', null, review.trust_notice),
-            review.cron.map((j, i) => h('p', {key: i}, 'Paused task: '+j.name+' · '+j.schedule)),
             h('p', null, 'Version '+review.version+' · Hermes '+review.hermes_requires),
             h('p', null, 'Source: '+review.source), h('code', null, review.commit),
             h('p', null, 'This exact checked version is what gets adopted. Later changes by the creator are not pulled in.'))),
@@ -247,9 +250,14 @@ function createDropsApp(React, bridge) {
     const pickBot = h('label', {className: 'bd-field'}, h('span', null, 'Which bot?'), h('select', {value: profile, onChange: e => chooseProfile(e.target.value), disabled: !!busy}, h('option', {value: ''}, 'Choose a bot…'), ...(boot?.profiles || []).map(p => h('option', {key: p, value: p}, p)), h('option', {value: 'default'}, 'default (your main profile)')));
     const say = profile && h('label', {className: 'bd-field'}, h('span', null, 'What does it do? ', h('small', null, (TAGLINE - tagline.length)+' left')),
       h('input', {value: tagline, maxLength: TAGLINE, placeholder: 'One line for the card', onChange: e => {setTagline(e.target.value); setTouched(true); setAccepted(false);}, disabled: !!busy, autoComplete: 'off'}));
-    const contents = h('div', {className: 'bd-lists'},
-      h('div', null, h('b', null, 'Shared'), h('ul', null, h('li', null, 'Personality'), h('li', null, 'Your own skills'))),
-      h('div', null, h('b', null, 'Never shared'), h('ul', null, h('li', null, 'Keys and logins'), h('li', null, 'Memory and chats'), h('li', null, 'Plugins and connections'))));
+    const shareInfo = cards.share && cards.share.profile === profile ? cards.share : null;
+    const contents = h('div', {className: 'bd-contents'},
+      h('div', {className: 'bd-lists'},
+        h('div', null, h('b', null, 'Shared'), h('ul', null, h('li', null, 'Personality'), h('li', null, 'Your own skills'), shareInfo?.cron?.length > 0 && h('li', null, 'Scheduled tasks, paused'))),
+        h('div', null, h('b', null, 'Never shared'), h('ul', null, h('li', null, 'Keys and logins'), h('li', null, 'Memory and chats'), h('li', null, 'Where tasks report to'), h('li', null, 'Plugins and connections'), h('li', null, 'Skills Hub skills')))),
+      shareInfo?.cronProblem && h('p', {className: 'bd-hint'}, shareInfo.cronProblem),
+      shareInfo?.hub?.length > 0 && h('p', {className: 'bd-hint'}, 'Left out, installed from the Skills Hub: '+shareInfo.hub.join(', ')),
+      tasks(shareInfo?.cron, shareInfo?.cron?.length === 1 ? 'This task goes public' : 'These '+(shareInfo?.cron?.length || 0)+' tasks go public'));
     const seg = (label, value) => h('button', {type: 'button', role: 'radio', 'aria-checked': target === value, disabled: !!busy, onClick: () => {setTarget(value); setAccepted(false); if (value === 'update' && !existing) setExisting(drops[0].owner+'/'+drops[0].repo);}}, label);
     const destination = gh?.available && h('div', null,
       drops.length > 0 && h('div', {className: 'bd-seg', role: 'radiogroup', 'aria-label': 'Where to publish'}, seg('New drop', 'new'), seg('Update a drop', 'update')),

@@ -25,7 +25,9 @@ MAX_FILES = 1000
 NAME = re.compile(r'[a-z][a-z0-9-]{1,47}\Z')
 PRIVATE = {'.env', 'auth.json', 'memories', 'memory', 'sessions', 'logs', 'vault', 'home',
            '.ssh', '.aws', '.config', 'mcp-tokens', 'backups', 'local', 'workspace', '.git'}
-SECRET = re.compile(r'(?:sk-(?:proj-|ant-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[A-Z0-9]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|(?:api[_-]?key|secret|token|password)["\']?\s*[=:]\s*[\"\']?(?!\$\{|YOUR_|<|\"?\s*$)[A-Za-z0-9_./+\-]{12,})', re.I)
+# Hermes' credential stores (.env, auth.json) are never read. A share package is checked for these key shapes instead,
+# and any match stops the share.
+SECRET = re.compile(r'(?:sk-(?:proj-|ant-)?[A-Za-z0-9_-]{16,}|ya29\.[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{35}|xox[abposr]-[A-Za-z0-9-]{10,}|hf_[A-Za-z0-9]{30,}|gsk_[A-Za-z0-9]{40,}|glpat-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9]{36}|(?:sk|rk)_live_[A-Za-z0-9]{16,}|\b\d{8,10}:AA[A-Za-z0-9_-]{30,}|eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}|bearer\s+[A-Za-z0-9._~+/-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[A-Z0-9]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|(?:api[_-]?key|secret|token|password)["\']?\s*[=:]\s*[\"\']?(?!\$\{|YOUR_|<|\"?\s*$)[A-Za-z0-9_./+\-]{12,})', re.I)
 
 class DropError(ValueError):
     pass
@@ -173,56 +175,14 @@ def contains_secret(content):
     return any(looks_like_secret(m) for m in SECRET.finditer(content))
 
 
-def secret_scan(root, known_values=()):
+def secret_scan(root):
     for p in tree_files(root):
         rel=p.relative_to(root)
         if any(part in PRIVATE or part.startswith('.env.') for part in rel.parts):
             raise DropError('Private data is not shareable: '+rel.as_posix())
         content=p.read_bytes().decode('utf-8',errors='ignore')
-        if contains_secret(content) or any(value in content for value in known_values):
+        if contains_secret(content):
             raise DropError('Possible credential found in '+rel.as_posix()+'. Remove it before sharing. The value was not logged.')
-
-
-SECRET_NAME = re.compile(r'key|token|secret|passw|credential|cookie|session|private|signature|bearer|jwt', re.I)
-
-
-def _is_secret(name, value):
-    """Is this stored value something that must never leave the computer?
-    Login stores also hold plain facts (provider names, client ids, service addresses) that appear
-    in ordinary files; treating those as credentials would block sharing for every signed-in user."""
-    if len(value) < 8 or re.fullmatch(r'https?://[^\s@?#]+', value):
-        return False
-    if SECRET_NAME.search(name):
-        return True
-    return len(value) >= 20 and ' ' not in value and bool(re.search(r'\d', value)) and bool(re.search(r'[A-Za-z]', value))
-
-
-def profile_credentials(source):
-    """Read only bounded local secret stores for exact-match scanning, never return their values to UI."""
-    values=set()
-    def collect(name,value):
-        if isinstance(value,str):
-            if _is_secret(name,value): values.add(value)
-        elif isinstance(value,dict):
-            for k,v in value.items(): collect(str(k),v)
-        elif isinstance(value,list):
-            for v in value: collect(name,v)
-    for name in ('.env','auth.json'):
-        path=source/name
-        if not path.exists(): continue
-        if path.is_symlink() or path.stat().st_size>MAX_FILE:
-            raise DropError('Cannot scan the local credential store. Export was stopped.')
-        try:
-            content=path.read_text('utf-8')
-            if name.endswith('.json'): collect('',json.loads(content))
-            else:
-                for line in content.splitlines():
-                    if line.strip() and not line.lstrip().startswith('#') and '=' in line:
-                        key,value=line.split('=',1)
-                        collect(key.strip(),value.strip().strip('\"\''))
-        except (OSError,ValueError) as exc:
-            raise DropError('Cannot scan the local credential store. Export was stopped.') from exc
-    return values
 
 
 def _text_keys(value):

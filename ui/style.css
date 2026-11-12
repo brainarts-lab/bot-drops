@@ -117,6 +117,13 @@ button.bd-chip:hover:not(:disabled){border-color:var(--muted)}
 .bot-drops pre{padding:12px;background:var(--field);border:1px solid var(--line);border-radius:10px;max-height:340px;overflow:auto}
 .bot-drops details.bd-notes{border:1px solid #f2cf7a55;border-radius:12px;padding:10px 14px;margin:16px 0;background:#f2cf7a0d}
 .bd-notes summary{color:var(--amber)}
+.bd-tasks{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:16px 0;text-align:left}
+.bd-tasks>b{font-size:13px}
+.bd-task{border-top:1px solid var(--line);margin-top:10px;padding-top:10px}
+.bd-task:first-of-type{border-top:0;margin-top:4px;padding-top:0}
+.bd-task p{margin:0 0 6px;font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.bd-task strong{color:var(--ink)}
+.bd-task pre{max-height:200px;margin:0}
 .bd-note{border-top:1px solid #f2cf7a33;padding:10px 0 2px;margin-top:10px}
 .bd-note b{font-size:13px}
 .bd-note small{font-size:12px;color:var(--muted)}
@@ -133,7 +140,7 @@ button.bd-chip:hover:not(:disabled){border-color:var(--muted)}
   .bd-start,.bd-two{grid-template-columns:minmax(0,1fr)}
   .bd-side{position:static}
   .bd-two.share .bd-side{order:-1}
-  .bd-side .bd-lists{display:none}
+  .bd-side .bd-contents{display:none}
   .bd-form-lists{display:block}
   .bd-example{transform:none;max-width:520px}
 }
